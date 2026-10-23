@@ -1,0 +1,1600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Daily Task Manager</title>
+<meta name="theme-color" content="#1a365d">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;650&family=Inter:wght@400;500&display=swap');
+  :root {
+    --bg: oklch(98% 0.005 250);
+    --card: oklch(100% 0 0);
+    --primary: oklch(60% 0.2 250);
+    --accent: oklch(65% 0.15 155);
+    --text: oklch(25% 0.02 250);
+    --muted: oklch(50% 0.02 250);
+    --border: oklch(92% 0.01 250);
+    --primary-soft: color-mix(in oklch, var(--primary) 12%, var(--bg));
+    --accent-soft: color-mix(in oklch, var(--accent) 15%, var(--bg));
+    --danger: oklch(60% 0.2 25);
+    --radius: 18px;
+    --shadow: 0 1px 3px oklch(25% 0.02 250 / 0.05), 0 4px 12px oklch(25% 0.02 250 / 0.04);
+    --shadow-hover: 0 4px 16px oklch(25% 0.02 250 / 0.08);
+  }
+  [data-theme="dark"] {
+    --bg: oklch(18% 0.02 250);
+    --card: oklch(24% 0.02 250);
+    --primary: oklch(72% 0.14 250);
+    --accent: oklch(74% 0.13 155);
+    --text: oklch(95% 0.01 250);
+    --muted: oklch(70% 0.02 250);
+    --border: oklch(35% 0.02 250);
+    --primary-soft: color-mix(in oklch, var(--primary) 18%, var(--bg));
+    --accent-soft: color-mix(in oklch, var(--accent) 16%, var(--bg));
+    --danger: oklch(70% 0.18 25);
+    --shadow: 0 1px 3px oklch(0% 0 0 / 0.3), 0 4px 12px oklch(0% 0 0 / 0.2);
+    --shadow-hover: 0 4px 16px oklch(0% 0 0 / 0.4);
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 0 0 40px;
+    max-width: none;
+    width: 100%;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 24px;
+    margin: 0 0 24px 0;
+    background: linear-gradient(in oklch shorter hue, var(--primary), var(--accent));
+    color: contrast-color(var(--primary));
+    border-radius: 0 0 24px 24px;
+    box-shadow: 0 8px 24px color-mix(in oklch, var(--primary) 30%, transparent);
+  }
+  .app-header h1 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.5rem;
+    margin: 0;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: contrast-color(var(--primary));
+  }
+  .signature { font-size: 0.8rem; opacity: 0.9; margin-top: 2px; color: contrast-color(var(--primary)); }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .header-right button {
+    background: color-mix(in oklch, white 20%, transparent);
+    border: 1px solid color-mix(in oklch, white 30%, transparent);
+    color: contrast-color(var(--primary));
+    padding: 8px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: background 0.2s;
+  }
+  .header-right button:hover {
+    background: color-mix(in oklch, white 30%, transparent);
+  }
+  .header-icon {
+    width: 40px; height: 40px; background: rgba(255,255,255,0.2);
+    border-radius: 12px; display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem; margin-right: 12px;
+  }
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 18px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    transition: box-shadow 0.2s;
+  }
+  .card:hover { box-shadow: var(--shadow-hover); }
+  h2 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.2rem;
+    margin: 0 0 14px;
+    font-weight: 600;
+  }
+  .energy {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .energy button {
+    flex: 1;
+    padding: 14px 10px;
+    border: 2px solid var(--border);
+    background: var(--card);
+    border-radius: 14px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+  .energy button:hover { border-color: var(--primary); }
+  .energy button.active {
+    background: var(--primary-soft);
+    border-color: var(--primary);
+    color: var(--primary);
+    font-weight: 600;
+  }
+  .task-row { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+  .task-row input[type="checkbox"] {
+    width: 22px; height: 22px; margin-top: 10px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  input[type="text"], textarea, select {
+    padding: 12px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    font-size: 1rem;
+    font-family: inherit;
+    background: var(--card);
+    color: var(--text);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  input[type="text"]:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  }
+  .task-row input[type="text"] { flex: 1; }
+  textarea { width: 100%; min-height: 80px; resize: vertical; }
+  button.save, button.add, button.export, button.affirm {
+    background: var(--primary);
+    color: contrast-color(var(--primary));
+    border: none;
+    padding: 13px 22px;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 10px;
+    transition: background 0.2s, transform 0.1s, filter 0.2s;
+  }
+  button.save:hover, button.add:hover, button.export:hover {
+    background: oklch(from var(--primary) calc(l - 0.06) c h);
+  }
+  button.affirm {
+    background: var(--accent);
+    color: contrast-color(var(--accent));
+    width: auto;
+    padding: 9px 16px;
+    margin: 6px 6px 0 0;
+    font-size: 0.9rem;
+  }
+  button.affirm:hover {
+    background: oklch(from var(--accent) calc(l - 0.06) c h);
+  }
+  .status { text-align: center; color: var(--accent); font-weight: 500; min-height: 1.5em; margin: 10px 0; }
+  .small { font-size: 0.875rem; color: var(--muted); }
+  .affirmation-box {
+    background: color-mix(in oklch, var(--accent) 14%, var(--card));
+    border-left: 4px solid var(--accent);
+    padding: 14px 16px;
+    border-radius: 12px;
+    font-style: italic;
+    margin-bottom: 10px;
+    min-height: 64px;
+    font-size: 1.02rem;
+    color: var(--text);
+  }
+  .tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    background: var(--card);
+    padding: 6px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+  }
+  .tabs button {
+    flex: 1;
+    padding: 11px 16px;
+    border: none;
+    background: transparent;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--muted);
+    transition: all 0.2s;
+  }
+  .tabs button.active {
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+  }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .planner-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 8px; }
+  .planner-nav button {
+    padding: 8px 14px;
+    border: 1.5px solid var(--border);
+    background: var(--card);
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  .view-toggle { display: flex; gap: 6px; margin-bottom: 14px; }
+  .view-toggle button {
+    flex: 1;
+    padding: 9px;
+    border: 1.5px solid var(--border);
+    background: var(--card);
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  .view-toggle button.active {
+    background: var(--primary-soft);
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+  .planner-item { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .timeline { position: relative; margin-top: 12px; border-left: 2px solid var(--border); padding-left: 12px; min-height: 480px; background: #f8fafc; border-radius: 8px; }
+  .time-slot { position: relative; height: 48px; border-bottom: 1px dashed #e2e8f0; font-size: 0.75rem; color: var(--muted); }
+  .time-label { position: absolute; left: -70px; top: -6px; width: 60px; text-align: right; }
+  .event-block { position: absolute; left: 8px; right: 8px; background: var(--primary-light); border-left: 3px solid var(--primary); border-radius: 6px; padding: 4px 8px; font-size: 0.85rem; overflow: hidden; cursor: pointer; }
+  .free-slot { color: #a0aec0; font-style: italic; padding: 4px 8px; }
+  .planner-item input[type="text"] { flex: 1; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 8px; }
+  .week-grid, .month-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .day-cell {
+    aspect-ratio: 1 / 1.05;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 6px 4px;
+    font-size: 0.8rem;
+    background: var(--card);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s;
+  }
+  .day-cell:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-hover);
+    border-color: var(--primary);
+  }
+  .day-cell.today {
+    border-color: var(--primary);
+    background: var(--primary-soft);
+    font-weight: 600;
+  }
+  .day-cell .date-num {
+    font-weight: 600;
+    margin-bottom: 2px;
+    font-size: 0.85rem;
+  }
+
+  .energy-cal {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 6px;
+    font-size: 0.75rem;
+  }
+  .energy-cal .eh {
+    text-align: center;
+    font-weight: 600;
+    color: var(--muted);
+    padding-bottom: 4px;
+  }
+  .energy-day {
+    aspect-ratio: 1 / 1.1;
+    text-align: center;
+    padding: 6px 2px;
+    border-radius: 10px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .energy-day:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow);
+  }
+  .energy-day.today {
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
+    font-weight: 600;
+  }
+  .face { font-size: 1.15rem; line-height: 1; }
+  #authOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(247,250,252,0.97);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  #authBox { background: white; padding: 24px; border-radius: 16px; box-shadow: var(--shadow); width: 100%; max-width: 360px; text-align: center; }
+  #authBox input { width: 100%; margin: 8px 0; padding: 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 1rem; }
+  #authBox button { width: 100%; margin-top: 8px; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 10px; font-size: 1rem; cursor: pointer; }
+  .user-bar { text-align: right; font-size: 0.85rem; color: var(--muted); margin-bottom: 8px; }
+  .user-bar button { background: none; border: none; color: var(--primary); cursor: pointer; }
+  footer { text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 30px; padding-bottom: 20px; }
+
+  /* Modern toast notifications */
+  #toastContainer {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: calc(100% - 32px);
+    max-width: 400px;
+    pointer-events: none;
+  }
+  .toast {
+    background: #1a202c;
+    color: white;
+    padding: 14px 18px;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    animation: toastIn 0.3s ease;
+    pointer-events: auto;
+  }
+  .toast.success { background: var(--accent); }
+  .toast.error { background: var(--danger); }
+  .toast.info { background: var(--primary); }
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Modern add item modal */
+  #addItemModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  #addItemModal.show { display: flex; }
+  #addItemBox {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 20px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+  }
+  #addItemBox h3 { margin: 0 0 16px; font-size: 1.2rem; }
+  #addItemBox input, #addItemBox select {
+    width: 100%;
+    margin-bottom: 12px;
+    padding: 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font-size: 1rem;
+    background: var(--card);
+    color: var(--text);
+  }
+  #addItemBox .row { display: flex; gap: 10px; }
+  #addItemBox .row input { flex: 1; }
+  #addItemBox button { width: 100%; margin-top: 8px; padding: 12px; border: none; border-radius: 10px; font-size: 1rem; cursor: pointer; }
+  #addItemBox .primary { background: var(--primary); color: white; }
+  #addItemBox .secondary { background: var(--border); color: var(--text); }
+
+
+  @media (max-width: 640px) {
+    body { padding: 0 0 32px; }
+    .app-header { flex-direction: column; align-items: flex-start; gap: 8px; padding: 16px; margin-bottom: 20px; }
+    #mainApp { padding: 0 12px; }
+    .header-right { width: 100%; justify-content: space-between; }
+    .tabs button { max-width: none; font-size: 0.95rem; }
+    .energy { flex-direction: column; }
+    .task-row { flex-direction: column; align-items: stretch; }
+    .task-row input[type="checkbox"] { margin-top: 0; align-self: flex-start; }
+    .timeline { padding-left: 8px; margin-left: 50px; }
+    .time-label { left: -58px; width: 50px; font-size: 0.7rem; }
+    .week-grid, .month-grid, .energy-cal { gap: 4px; }
+    .day-cell, .energy-day { min-height: 46px; padding: 4px 2px; font-size: 0.7rem; aspect-ratio: auto; }
+    .day-cell .date-num { font-size: 0.75rem; }
+    .planner-nav { flex-wrap: wrap; }
+    button.save, button.add, button.export { padding: 14px; }
+    h1 { font-size: 1.25rem; }
+    .chart-container { height: 180px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="securityModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:300; align-items:center; justify-content:center;">
+  <div style="background:var(--card); padding:24px; border-radius:16px; max-width:360px; width:90%; text-align:center;">
+    <h2>Security</h2>
+    <div id="securityContent"></div>
+    <button onclick="document.getElementById('securityModal').style.display='none'" style="margin-top:12px; background:#718096;">Close</button>
+  </div>
+</div>
+
+<div id="authOverlay">
+  <div id="authBox">
+    <h2>Sign in</h2>
+    <input type="text" id="authEmail" placeholder="Username" autocomplete="username">
+    <input type="password" id="authPassword" placeholder="Password" autocomplete="current-password">
+    <button onclick="signIn()">Sign in</button>
+    <button onclick="signUp()" style="background:#38a169;">Create account</button>
+    <div id="authStatus" class="small" style="margin-top:12px; min-height:2em;"></div>
+  </div>
+</div>
+
+  #mainApp {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 20px;
+  }
+  <div class="app-header">
+    <div style="display:flex; align-items:center;">
+      <div class="header-icon">✓</div>
+      <div>
+        <h1 id="pageTitle">Daily Task Manager</h1>
+        <div class="signature">Built for focus</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <span id="userEmail"></span>
+      <button onclick="toggleTheme()" title="Toggle theme">☀/🌙</button>
+      <button onclick="signOut()">Sign out</button>
+    </div>
+  </div>
+<div id="reminderBanner" style="display:none; background:#ebf8ff; border:1px solid #90cdf4; border-radius:12px; padding:12px 16px; margin-bottom:16px; text-align:center;">
+  <span id="reminderText"></span>
+  <button onclick="dismissReminder()" style="margin-left:12px; background:#2b6cb0; color:white; border:none; padding:6px 12px; border-radius:8px; cursor:pointer;">Got it</button>
+</div>
+
+  <div class="tabs">
+    <button id="tabToday" class="active" onclick="switchTab('today')">Today's Tasks</button>
+    <button id="tabPlanner" onclick="switchTab('planner')">Schedule</button>
+  </div>
+
+  <div id="todayTab" class="tab-content active">
+    <div class="card">
+      <h2>Positive Affirmation</h2>
+      <div class="affirmation-box" id="affirmationDisplay">I am capable of starting, even when it feels hard.</div>
+      <textarea id="affirmation" placeholder="Write or edit today’s affirmation…"></textarea>
+      <div>
+        <button class="affirm" onclick="setAffirmation()">New affirmation</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Energy Level</h2>
+      <div class="energy" id="energyBtns">
+        <button data-level="Low">Low</button>
+        <button data-level="Medium">Medium</button>
+        <button data-level="High">High</button>
+      </div>
+      <p class="small">On low-energy days your Top 3 can be very small.</p>
+      <div id="energyCalendar" style="margin-top:16px;"></div>
+      <div id="energyStreak" class="small" style="margin-top:8px; text-align:center;"></div>
+      <p class="small" style="text-align:center; margin-top:4px;">You can restart a streak anytime — no guilt.</p>
+    </div>
+
+    <div class="card">
+      <h2>Quick Helpers</h2>
+      <button class="add" onclick="imStuck()" style="background:#dd6b20;">I’m stuck</button>
+      <div id="stuckHelp" class="small" style="margin-top:8px;"></div>
+      <div style="margin-top:12px;">
+        <button class="affirm" onclick="startTimer(10)">10 min</button>
+        <button class="affirm" onclick="startTimer(25)">25 min</button>
+        <button class="affirm" onclick="stopTimer()">Stop</button>
+        <div id="timerDisplay" style="font-size:2rem; text-align:center; margin:8px 0; font-weight:600;"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Brain Dump → Top 3</h2>
+      <textarea id="brainDump" placeholder="Dump everything on your mind…"></textarea>
+      <button class="add" onclick="suggestTop3()">Suggest Top 3</button>
+      <div id="suggestions" class="small"></div>
+    </div>
+
+    <div class="card">
+      <h2>Top 3 Priorities</h2>
+      <p class="small">Only these are required. Write concrete next actions.</p>
+      <div id="top3"></div>
+    </div>
+
+    <div class="card">
+      <h2>Micro-starts</h2>
+      <p class="small">Tiny tasks under 5 minutes.</p>
+      <div class="micro" id="microList"></div>
+      <button class="add" onclick="addMicro()">+ Add micro-start</button>
+    </div>
+
+    <div class="card">
+      <h2>End of Day</h2>
+      <button class="affirm" onclick="logOneWin()">Log one win</button>
+      <label class="small">What got done:</label>
+      <textarea id="gotDone" placeholder="Any progress counts…"></textarea>
+      <label class="small">Carry over (no judgment):</label>
+      <textarea id="carryOver"></textarea>
+      <label class="small">Tomorrow’s #1:</label>
+      <input type="text" id="tomorrow1" placeholder="One clear next action" style="width:100%;">
+    </div>
+
+    <button class="save" onclick="saveDay()">Save Today</button>
+    <div class="status" id="status"></div>
+
+    <div class="card">
+      <h2>Weekly Progress</h2>
+      <p class="small">Top 3 completion rate over the last 7 days.</p>
+      <div class="chart-container"><canvas id="weekChart"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h2>Weekly Summary</h2>
+      <div id="weeklySummary" class="small"></div>
+    </div>
+
+    <div class="card">
+      <h2>Recent Days</h2>
+      <div id="history"></div>
+    </div>
+
+    <button class="export" onclick="exportData()">Export All Data (JSON)</button>
+  </div>
+
+  <div id="plannerTab" class="tab-content">
+    <div class="card">
+      <h2>Schedule</h2>
+      <div class="planner-nav">
+        <button onclick="changePlannerDate(-1)">←</button>
+        <strong id="plannerDateLabel"></strong>
+        <button onclick="changePlannerDate(1)">→</button>
+      </div>
+      <div class="view-toggle">
+        <button id="viewDay" class="active" onclick="setPlannerView('day')">Day</button>
+        <button id="viewWeek" onclick="setPlannerView('week')">Week</button>
+        <button id="viewMonth" onclick="setPlannerView('month')">Month</button>
+      </div>
+      <div id="plannerContent"></div>
+      <div id="dayDetail" style="margin-top:16px;"></div>
+      <button class="add" onclick="addPlannerItem()" id="addItemBtn">+ Add entry</button>
+      <button class="add" onclick="copyDayToTomorrow()" style="background:#718096;">Copy to tomorrow</button>
+    </div>
+  </div>
+
+  <footer>Data syncs when signed in. Local fallback always available.<br>Low friction, no guilt.</footer>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://wqbssirqnbbeftgskktb.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxYnNzaXJxbmJiZWZ0Z3Nra3RiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyNzcxODQsImV4cCI6MjEwNzg1MzE4NH0.XsHIZ5kZTSv10UGZwEy-4Urv-GTUyb23-BOeRYi1u8Q';
+const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+let currentUser = null;
+function safeGet(key, fallback = '{}') {
+  try { return localStorage.getItem(key) || fallback; }
+  catch (e) { return fallback; }
+}
+function safeSet(key, value) {
+  try { localStorage.setItem(key, value); }
+  catch (e) { console.warn('Storage blocked', e); }
+}
+function localDateKey(d = new Date()) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+const todayKey = localDateKey();
+let plannerDate = new Date();
+let plannerView = 'day';
+const defaultAffirmation = "I am capable of starting, even when it feels hard.";
+
+function setAuthStatus(msg) {
+  const el = document.getElementById('authStatus');
+  if (el) el.textContent = msg;
+}
+
+async function logAudit(action, details = {}) {
+  if (!currentUser || !sb) return;
+  try { await sb.from('audit_log').insert({ user_id: currentUser.id, action, details }); } catch (e) {}
+}
+
+async function openSecurity() {
+  const modal = document.getElementById('securityModal');
+  const content = document.getElementById('securityContent');
+  modal.style.display = 'flex';
+  content.innerHTML = 'Loading…';
+  const { data: factors } = await sb.auth.mfa.listFactors();
+  const totp = factors?.totp?.[0];
+  if (totp) {
+    content.innerHTML = `
+      <p>Authenticator app is enabled.</p>
+      <button onclick="disableTotp('${totp.id}')">Disable 2FA</button>
+    `;
+  } else {
+    content.innerHTML = `<button onclick="enrollTotp()">Enable authenticator app</button>`;
+  }
+}
+
+async function enrollTotp() {
+  const content = document.getElementById('securityContent');
+  content.innerHTML = 'Preparing…';
+  const { data, error } = await sb.auth.mfa.enroll({ factorType: 'totp' });
+  if (error) { content.innerHTML = error.message; return; }
+  content.innerHTML = `
+    <p>Scan this QR code with your authenticator app:</p>
+    <img src="${data.totp.qr_code}" alt="QR code" style="max-width:200px; margin:12px auto;">
+    <p class="small">Or enter manually: <code>${data.totp.secret}</code></p>
+    <input id="totpCode" placeholder="6-digit code" style="margin:8px 0;">
+    <button onclick="verifyEnroll('${data.id}')">Verify & enable</button>
+  `;
+}
+
+async function verifyEnroll(factorId) {
+  const code = document.getElementById('totpCode').value.trim();
+  const { data: challenge, error: cErr } = await sb.auth.mfa.challenge({ factorId });
+  if (cErr) { alert(cErr.message); return; }
+  const { error } = await sb.auth.mfa.verify({ factorId, challengeId: challenge.id, code });
+  if (error) { alert(error.message); return; }
+  alert('2FA enabled');
+  openSecurity();
+}
+
+async function disableTotp(factorId) {
+  if (!confirm('Disable 2FA?')) return;
+  const { error } = await sb.auth.mfa.unenroll({ factorId });
+  if (error) alert(error.message);
+  else openSecurity();
+}
+
+async function signIn() {
+  setAuthStatus('Signing in…');
+  if (!sb) { setAuthStatus('Supabase not loaded'); return; }
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  if (!email || !password) { setAuthStatus('Enter email and password'); return; }
+
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) { setAuthStatus(error.message); return; }
+
+    // Optional MFA check — only if the API supports it
+    try {
+      const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2') {
+        const { data: factors } = await sb.auth.mfa.listFactors();
+        const totp = factors?.totp?.[0];
+        if (totp) {
+          const code = prompt('Enter the 6-digit code from your authenticator app:');
+          if (!code) { setAuthStatus('2FA code required'); return; }
+          const { data: challenge, error: cErr } = await sb.auth.mfa.challenge({ factorId: totp.id });
+          if (cErr) { setAuthStatus(cErr.message); return; }
+          const { error: vErr } = await sb.auth.mfa.verify({ factorId: totp.id, challengeId: challenge.id, code });
+          if (vErr) { setAuthStatus(vErr.message); return; }
+        }
+      }
+    } catch (mfaErr) {
+      console.warn('MFA check skipped:', mfaErr);
+      // Continue without MFA if the call fails
+    }
+
+    currentUser = data.user || (await sb.auth.getUser()).data.user;
+    setAuthStatus('Signed in');
+    await logAudit('login');
+    showApp();
+  } catch (e) {
+    setAuthStatus('Error: ' + (e.message || e));
+    console.error(e);
+  }
+}
+
+async function signUp() {
+  setAuthStatus('Creating account…');
+  if (!sb) { setAuthStatus('Supabase not loaded'); return; }
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const { error } = await sb.auth.signUp({ email, password });
+  setAuthStatus(error ? error.message : 'Account created. Sign in now.');
+}
+
+async function signOut() {
+  await logAudit('logout');
+  if (sb) await sb.auth.signOut();
+  location.reload();
+}
+
+function showApp() {
+  const overlay = document.getElementById('authOverlay');
+  const main = document.getElementById('mainApp');
+  if (overlay) overlay.style.display = 'none';
+  if (main) main.style.display = 'block';
+  const emailEl = document.getElementById('userEmail');
+  if (emailEl && currentUser) emailEl.textContent = currentUser.email || '';
+  const dateEl = document.getElementById('todayDate');
+  if (dateEl) dateEl.textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  loadFromCloud().then(() => { if (typeof loadDay === 'function') loadDay(); }).catch(() => {});
+}
+
+async function loadFromCloud() {
+  if (!currentUser || !sb) return;
+  const { data: days } = await sb.from('task_days').select('date, data').eq('user_id', currentUser.id);
+  if (days) {
+    const local = JSON.parse(localStorage.getItem('task-days') || '{}');
+    days.forEach(row => { local[row.date] = row.data; });
+    localStorage.setItem('task-days', JSON.stringify(local));
+  }
+  const { data: plans } = await sb.from('planner_entries').select('date, items').eq('user_id', currentUser.id);
+  if (plans) {
+    const local = JSON.parse(localStorage.getItem('planner-entries') || '{}');
+    plans.forEach(row => { local[row.date] = row.items; });
+    localStorage.setItem('planner-entries', JSON.stringify(local));
+  }
+  await logAudit('load_data');
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>').replace(/"/g, '"').replace(/'/g, '&#39;');
+}
+
+function loadDay() {
+  const data = JSON.parse(localStorage.getItem('task-days') || '{}')[todayKey] || {};
+  // ... existing load logic stays, then add:
+  checkCarryOver();
+  checkEnergySuggestion();
+}
+
+function checkCarryOver() {
+  const prompt = document.getElementById('carryPrompt');
+  if (!prompt) return;
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yKey = localDateKey(yesterday);
+  const yData = JSON.parse(localStorage.getItem('task-days') || '{}')[yKey];
+  if (!yData || !yData.top3) { prompt.style.display = 'none'; return; }
+  const unfinished = yData.top3.filter(t => t.text && !t.done);
+  if (!unfinished.length) { prompt.style.display = 'none'; return; }
+  prompt.style.display = 'block';
+  prompt.innerHTML = `Yesterday had ${unfinished.length} unfinished item(s). <button onclick="carryForward()" style="margin-left:8px;">Bring them forward</button>`;
+}
+function carryForward() {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yKey = localDateKey(yesterday);
+  const yData = JSON.parse(localStorage.getItem('task-days') || '{}')[yKey] || {};
+  const unfinished = (yData.top3 || []).filter(t => t.text && !t.done);
+  const inputs = document.querySelectorAll('#top3 input[type="text"]');
+  let i = 0;
+  unfinished.forEach(item => {
+    while (i < inputs.length && inputs[i].value.trim()) i++;
+    if (i < inputs.length) inputs[i].value = item.text;
+  });
+  document.getElementById('carryPrompt').style.display = 'none';
+  saveDay();
+}
+
+function checkEnergySuggestion() {
+  const energy = document.querySelector('.energy button.active')?.dataset.level;
+  if (energy === 'Low') {
+    // gentle note already exists in the UI; could enhance later
+  }
+}
+
+function logOneWin() {
+  const win = prompt('One win from today:');
+  if (!win) return;
+  const got = document.getElementById('gotDone');
+  got.value = (got.value ? got.value + '\n' : '') + '✓ ' + win;
+  saveDay();
+}
+
+function startTimerOnTask(index) {
+  const text = document.querySelectorAll('#top3 input[type="text"]')[index]?.value || 'Task';
+  startTimer(25);
+  document.getElementById('timerDisplay').setAttribute('data-label', text);
+}
+
+function loadDay() {
+  const data = JSON.parse(localStorage.getItem('task-days') || '{}')[todayKey] || {};
+  const aff = data.affirmation || defaultAffirmation;
+  document.getElementById('affirmation').value = aff;
+  document.getElementById('affirmationDisplay').textContent = aff;
+
+  document.querySelectorAll('.energy button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.level === data.energy);
+  });
+
+  const top3Div = document.getElementById('top3');
+  top3Div.innerHTML = '';
+  (data.top3 || [{text:'',done:false},{text:'',done:false},{text:'',done:false}]).forEach((t, i) => {
+    const row = document.createElement('div');
+    row.className = 'task-row';
+    row.innerHTML = `<input type="checkbox" ${t.done ? 'checked' : ''}><input type="text" value="${escapeHtml(t.text)}" placeholder="Top priority ${i+1}">`;
+    top3Div.appendChild(row);
+  });
+
+  const microDiv = document.getElementById('microList');
+  microDiv.innerHTML = '';
+  (data.micro || ['']).forEach(m => {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = m;
+    input.placeholder = 'Micro-start…';
+    microDiv.appendChild(input);
+  });
+
+  document.getElementById('gotDone').value = data.gotDone || '';
+  document.getElementById('carryOver').value = data.carryOver || '';
+  document.getElementById('tomorrow1').value = data.tomorrow1 || '';
+
+  renderHistory();
+  renderWeekGraph();
+  renderEnergyCalendar();
+  renderWeeklySummary();
+  checkCarryOver();
+}
+
+const affirmations = [
+  "I am capable of starting, even when it feels hard.",
+  "Progress counts, no matter how small.",
+  "I can return to this anytime without judgment.",
+  "My effort today is enough.",
+  "Starting is the hardest part — and I can do hard things.",
+  "I don’t have to finish. I only have to begin.",
+  "Small steps still move me forward.",
+  "It’s okay to do this imperfectly.",
+  "I am allowed to take breaks and come back.",
+  "Focus on the next tiny action, not the whole mountain.",
+  "I’ve started before. I can start again.",
+  "Done is better than perfect right now.",
+  "My energy is information, not a verdict.",
+  "I can make this smaller until it feels possible."
+];
+let lastAff = -1;
+function setAffirmation(text) {
+  if (!text) {
+    let idx;
+    do { idx = Math.floor(Math.random() * affirmations.length); } while (idx === lastAff && affirmations.length > 1);
+    lastAff = idx;
+    text = affirmations[idx];
+  }
+  document.getElementById('affirmation').value = text;
+  document.getElementById('affirmationDisplay').textContent = text;
+  saveDay();
+}
+
+function getCurrentData() {
+  const energyBtn = document.querySelector('.energy button.active');
+  const top3 = [];
+  document.querySelectorAll('#top3 .task-row').forEach(row => {
+    top3.push({
+      text: row.querySelector('input[type="text"]').value.trim(),
+      done: row.querySelector('input[type="checkbox"]').checked
+    });
+  });
+  const micro = Array.from(document.querySelectorAll('#microList input')).map(i => i.value.trim()).filter(Boolean);
+  return {
+    energy: energyBtn ? energyBtn.dataset.level : null,
+    top3,
+    micro,
+    gotDone: document.getElementById('gotDone').value.trim(),
+    carryOver: document.getElementById('carryOver').value.trim(),
+    tomorrow1: document.getElementById('tomorrow1').value.trim(),
+    affirmation: document.getElementById('affirmation').value.trim() || defaultAffirmation,
+    savedAt: new Date().toISOString()
+  };
+}
+
+async function saveDay() {
+  const all = JSON.parse(localStorage.getItem('task-days') || '{}');
+  all[todayKey] = getCurrentData();
+  localStorage.setItem('task-days', JSON.stringify(all));
+  document.getElementById('affirmationDisplay').textContent = all[todayKey].affirmation;
+  document.getElementById('status').textContent = 'Saved ✓';
+  setTimeout(() => document.getElementById('status').textContent = '', 2000);
+  renderHistory();
+  renderWeekGraph();
+  if (currentUser && sb) {
+    await sb.from('task_days').upsert({ user_id: currentUser.id, date: todayKey, data: all[todayKey] });
+    logAudit('save_day', { date: todayKey });
+  }
+}
+
+function addMicro() {
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = 'Micro-start…';
+  document.getElementById('microList').appendChild(input);
+  input.focus();
+}
+
+function renderEnergyCalendar() {
+  const container = document.getElementById('energyCalendar');
+  const streakEl = document.getElementById('energyStreak');
+  if (!container) return;
+  const all = JSON.parse(localStorage.getItem('task-days') || '{}');
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const first = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const startPad = first.getDay();
+
+  let html = '<div class="energy-cal">';
+  ['S','M','T','W','T','F','S'].forEach(d => html += `<div class="eh">${d}</div>`);
+  for (let i = 0; i < startPad; i++) html += '<div></div>';
+
+  const faces = { High: '😊', Medium: '😐', Low: '😞' };
+  const colors = { High: '#c6f6d5', Medium: '#fefcbf', Low: '#fed7d7' };
+  let currentStreak = 0;
+  let maxStreak = 0;
+  let tempStreak = 0;
+  const todayStr = todayKey;
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const d = new Date(year, month, day);
+    const key = localDateKey(d);
+    const energy = all[key]?.energy;
+    const isToday = key === todayStr;
+    const face = energy ? (faces[energy] || '') : '';
+    const bg = energy ? (colors[energy] || '#f8fafc') : '#f8fafc';
+    html += `<div class="energy-day${isToday ? ' today' : ''}" style="background:${bg}" title="${energy || 'No entry'}">${day}<br><span class="face">${face}</span></div>`;
+
+    if (key <= todayStr) {
+      if (energy) {
+        tempStreak++;
+        if (tempStreak > maxStreak) maxStreak = tempStreak;
+        if (key === todayStr || (day === daysInMonth && key <= todayStr)) currentStreak = tempStreak;
+      } else {
+        if (key < todayStr) tempStreak = 0;
+      }
+    }
+  }
+  html += '</div>';
+  container.innerHTML = html;
+
+  // Recalculate current streak properly (consecutive days up to today with energy)
+  currentStreak = 0;
+  for (let i = 0; i < 60; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const key = localDateKey(d);
+    if (all[key]?.energy) currentStreak++;
+    else break;
+  }
+  streakEl.textContent = currentStreak > 0
+    ? `Current streak: ${currentStreak} day${currentStreak > 1 ? 's' : ''} · Best this month: ${maxStreak}`
+    : 'Log energy to start a streak';
+}
+
+const stuckHelps = [
+  "Shrink it to the very first 2-minute step and start a 5-minute timer.",
+  "Stand up, get water, then open the exact file or tab you need.",
+  "Write the next physical action as a verb (“open…”, “type…”, “send…”).",
+  "Set a 10-minute timer and only do that one tiny piece.",
+  "Clear your desk of everything except what this task needs.",
+  "Tell yourself you’ll only do the first sentence / first click.",
+  "Put on one song and work until it ends.",
+  "Move to a different spot in the room and restart.",
+  "Name the feeling out loud, then do the smallest next action.",
+  "Open a blank note and type the next three words only.",
+  "Set a timer for 3 minutes and stop when it rings — no more.",
+  "Ask: what’s the version of this that takes under 60 seconds?"
+];
+let lastStuck = -1;
+function imStuck() {
+  let idx;
+  do { idx = Math.floor(Math.random() * stuckHelps.length); } while (idx === lastStuck && stuckHelps.length > 1);
+  lastStuck = idx;
+  document.getElementById('stuckHelp').textContent = stuckHelps[idx];
+}
+
+let timerInterval = null;
+function startTimer(mins) {
+  clearInterval(timerInterval);
+  let seconds = mins * 60;
+  const display = document.getElementById('timerDisplay');
+  timerInterval = setInterval(() => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    display.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+    if (seconds <= 0) {
+      clearInterval(timerInterval);
+      display.textContent = "Done";
+      showTransition();
+    }
+    seconds--;
+  }, 1000);
+}
+function stopTimer() {
+  clearInterval(timerInterval);
+  document.getElementById('timerDisplay').textContent = '';
+}
+
+function showTransition() {
+  const msg = document.createElement('div');
+  msg.className = 'small';
+  msg.style.cssText = 'background:#ebf8ff; padding:8px; border-radius:8px; margin-top:8px;';
+  msg.textContent = "What’s the very next small thing?";
+  document.getElementById('stuckHelp').after(msg);
+  setTimeout(() => msg.remove(), 8000);
+}
+
+function suggestTop3() {
+  const text = document.getElementById('brainDump').value;
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const suggestions = lines.slice(0, 3);
+  const el = document.getElementById('suggestions');
+  if (!suggestions.length) { el.textContent = 'Add a few lines first.'; return; }
+  el.innerHTML = suggestions.map((s, i) => 
+    `<div>${i+1}. ${escapeHtml(s)} <button onclick="addToTop3('${escapeHtml(s).replace(/'/g,"\\'")}')" style="font-size:0.8rem;">Add</button></div>`
+  ).join('');
+}
+function addToTop3(text) {
+  const inputs = document.querySelectorAll('#top3 input[type="text"]');
+  for (let inp of inputs) {
+    if (!inp.value.trim()) { inp.value = text; saveDay(); return; }
+  }
+}
+
+const defaultRewards = ["5-minute stretch", "Favorite song", "Cup of tea/coffee", "Step outside", "Quick scroll"];
+function renderRewards() { /* removed */ }
+function toggleReward() { /* removed */ }
+
+function renderWeeklySummary() {
+  const all = JSON.parse(localStorage.getItem('task-days') || '{}');
+  let finished = 0, high = 0, totalDays = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const key = localDateKey(d);
+    const day = all[key];
+    if (day) {
+      totalDays++;
+      if (day.energy === 'High') high++;
+      finished += (day.top3 || []).filter(t => t.done && t.text).length;
+    }
+  }
+  document.getElementById('weeklySummary').innerHTML = 
+    `Last 7 days: ${finished} priorities finished across ${totalDays} logged days.<br>` +
+    `High-energy days: ${high}.<br>` +
+    `<em>Suggested focus: pick one small win tomorrow morning.</em>`;
+}
+
+function renderHistory() {
+  const all = JSON.parse(localStorage.getItem('task-days') || '{}');
+  const q = (document.getElementById('historySearch')?.value || '').toLowerCase();
+  let keys = Object.keys(all).sort().reverse();
+  if (q) keys = keys.filter(k => JSON.stringify(all[k]).toLowerCase().includes(q));
+  keys = keys.slice(0, 20);
+  const hist = document.getElementById('history');
+  if (!keys.length) { hist.innerHTML = '<p class="small">No matching days.</p>'; return; }
+  hist.innerHTML = keys.map(k => {
+    const d = all[k];
+    const done = (d.top3 || []).filter(t => t.done && t.text).length;
+    const total = (d.top3 || []).filter(t => t.text).length;
+    const label = new Date(k + 'T12:00:00').toLocaleDateString();
+    return `<div class="history-item" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center;">
+      <span onclick="viewPastDay('${k}')"><strong>${label}</strong> · ${done}/${total} done · ${d.energy || '—'}</span>
+      <button onclick="deleteDay('${k}'); event.stopPropagation();" style="background:none; border:none; color:#e53e3e; cursor:pointer;">✕</button>
+    </div>`;
+  }).join('');
+}
+
+let undoStack = [];
+
+function deleteDay(key) {
+  if (!confirm('Delete this day?')) return;
+  const all = JSON.parse(localStorage.getItem('task-days') || '{}');
+  const deleted = all[key];
+  if (!deleted) return;
+  undoStack.push({ type: 'day', key, data: deleted });
+  delete all[key];
+  localStorage.setItem('task-days', JSON.stringify(all));
+  if (currentUser && sb) {
+    sb.from('task_days').delete().eq('user_id', currentUser.id).eq('date', key);
+  }
+  renderHistory();
+  renderEnergyCalendar();
+  renderWeekGraph();
+  showUndo('Day deleted');
+}
+
+function showUndo(message) {
+  let bar = document.getElementById('undoBar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'undoBar';
+    bar.style.cssText = 'position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:#2d3748; color:white; padding:12px 18px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.2); z-index:200; font-size:0.95rem;';
+    document.body.appendChild(bar);
+  }
+  bar.innerHTML = `${message} <button onclick="undoLast()" style="margin-left:12px; padding:6px 14px; background:#38a169; color:white; border:none; border-radius:8px; cursor:pointer;">Undo</button>`;
+  bar.style.display = 'block';
+  clearTimeout(window.undoTimer);
+  window.undoTimer = setTimeout(() => { bar.style.display = 'none'; }, 8000);
+}
+
+function showToast(message, type = 'info', duration = 3000) {
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = 'toast ' + type;
+  toast.innerHTML = `<span>${message}</span>`;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(10px)';
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
+function openAddItemModal() {
+  document.getElementById('newItemText').value = '';
+  document.getElementById('newItemStart').value = '';
+  document.getElementById('newItemType').value = 'work';
+  document.getElementById('newItemAllDay').checked = false;
+  document.getElementById('addItemModal').classList.add('show');
+  setTimeout(() => document.getElementById('newItemText').focus(), 100);
+}
+
+function closeAddItemModal() {
+  document.getElementById('addItemModal').classList.remove('show');
+}
+
+function confirmAddItem() {
+  const text = document.getElementById('newItemText').value.trim();
+  if (!text) {
+    showToast('Please enter a description', 'error');
+    return;
+  }
+  const start = document.getElementById('newItemStart').value || '';
+  const type = document.getElementById('newItemType').value;
+  const allDay = document.getElementById('newItemAllDay').checked;
+
+  try {
+    const key = getPlannerKey(plannerDate);
+    const items = loadPlannerItems(key);
+    items.push({ text, done: false, start, type, allDay });
+    savePlannerItems(key, items);
+    closeAddItemModal();
+    renderPlanner();
+    showToast('Entry added', 'success');
+  } catch (e) {
+    showToast('Error adding entry', 'error');
+    console.error(e);
+  }
+}
+
+function undoLast() {
+  const last = undoStack.pop();
+  if (!last) return;
+  if (last.type === 'day') {
+    const all = JSON.parse(localStorage.getItem('task-days') || '{}');
+    all[last.key] = last.data;
+    localStorage.setItem('task-days', JSON.stringify(all));
+    if (currentUser && sb) {
+      sb.from('task_days').upsert({ user_id: currentUser.id, date: last.key, data: last.data });
+    }
+    renderHistory();
+    renderEnergyCalendar();
+    renderWeekGraph();
+  } else if (last.type === 'planner') {
+    const items = loadPlannerItems(last.key);
+    items.splice(last.index, 0, last.data);
+    savePlannerItems(last.key, items);
+    renderPlanner();
+  }
+  document.getElementById('status').textContent = 'Restored';
+  setTimeout(() => document.getElementById('status').textContent = '', 2000);
+}
+
+function viewPastDay(key) {
+  const all = JSON.parse(localStorage.getItem('task-days') || '{}');
+  const data = all[key] || {};
+  document.getElementById('affirmation').value = data.affirmation || defaultAffirmation;
+  document.getElementById('affirmationDisplay').textContent = data.affirmation || defaultAffirmation;
+  document.querySelectorAll('.energy button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.level === data.energy);
+  });
+  const top3Div = document.getElementById('top3');
+  top3Div.innerHTML = '';
+  (data.top3 || [{text:'',done:false},{text:'',done:false},{text:'',done:false}]).forEach((t, i) => {
+    const row = document.createElement('div');
+    row.className = 'task-row';
+    row.innerHTML = `<input type="checkbox" ${t.done ? 'checked' : ''}><input type="text" value="${escapeHtml(t.text)}" placeholder="Top priority ${i+1}">`;
+    top3Div.appendChild(row);
+  });
+  document.getElementById('gotDone').value = data.gotDone || '';
+  document.getElementById('carryOver').value = data.carryOver || '';
+  document.getElementById('tomorrow1').value = data.tomorrow1 || '';
+  document.getElementById('status').textContent = 'Viewing ' + new Date(key + 'T12:00:00').toLocaleDateString() + ' (changes save to today)';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function toggleTheme() {
+  const html = document.documentElement;
+  const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+}
+
+// Apply saved theme on load
+document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'light');
+
+let weekChart = null;
+function renderWeekGraph() {
+  const all = JSON.parse(localStorage.getItem('task-days') || '{}');
+  const labels = [], data = [], colors = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const key = localDateKey(d);
+    const dayData = all[key];
+    let pct = 0;
+    if (dayData && dayData.top3) {
+      const filled = dayData.top3.filter(t => t.text).length;
+      const done = dayData.top3.filter(t => t.done && t.text).length;
+      pct = filled ? Math.round((done / filled) * 100) : 0;
+    }
+    labels.push(d.toLocaleDateString(undefined, { weekday: 'short' }));
+    data.push(pct);
+    colors.push(pct > 0 ? '#38a169' : '#bee3f8');
+  }
+  const ctx = document.getElementById('weekChart').getContext('2d');
+  if (weekChart) {
+    weekChart.data.labels = labels;
+    weekChart.data.datasets[0].data = data;
+    weekChart.data.datasets[0].backgroundColor = colors;
+    weekChart.update();
+  } else {
+    weekChart = new Chart(ctx, {
+      type: 'bar',
+      data: { labels, datasets: [{ label: 'Completion %', data, backgroundColor: colors, borderRadius: 6, barPercentage: 0.7 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } }, x: { grid: { display: false } } }
+      }
+    });
+  }
+}
+
+function exportData() {
+  const data = {
+    taskDays: JSON.parse(localStorage.getItem('task-days') || '{}'),
+    plannerEntries: JSON.parse(localStorage.getItem('planner-entries') || '{}')
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `daily-task-manager-${todayKey}.json`;
+  a.click();
+}
+
+document.getElementById('energyBtns').addEventListener('click', e => {
+  if (e.target.tagName === 'BUTTON') {
+    document.querySelectorAll('.energy button').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    saveDay();
+  }
+});
+document.getElementById('affirmation').addEventListener('input', e => {
+  document.getElementById('affirmationDisplay').textContent = e.target.value || defaultAffirmation;
+});
+
+// Planner
+function switchTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tabs button').forEach(el => el.classList.remove('active'));
+  document.getElementById(tab + 'Tab').classList.add('active');
+  document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+  document.getElementById('pageTitle').textContent = tab === 'planner' ? 'Schedule' : "Today's Tasks";
+  if (tab === 'planner') {
+    try { 
+      renderPlanner(); 
+    } catch (e) { 
+      console.error(e); 
+      document.getElementById('plannerContent').innerHTML = '<p style="color:red;">Calendar error: ' + e.message + '</p>'; 
+    }
+  }
+}
+
+function changePlannerDate(delta) {
+  if (plannerView === 'day') plannerDate.setDate(plannerDate.getDate() + delta);
+  else if (plannerView === 'week') plannerDate.setDate(plannerDate.getDate() + delta * 7);
+  else plannerDate.setMonth(plannerDate.getMonth() + delta);
+  renderPlanner();
+}
+
+function setPlannerView(view) {
+  plannerView = view;
+  document.querySelectorAll('.view-toggle button').forEach(b => b.classList.remove('active'));
+  document.getElementById('view' + view.charAt(0).toUpperCase() + view.slice(1)).classList.add('active');
+  renderPlanner();
+}
+
+function getPlannerKey(d) { return localDateKey(d); }
+function loadPlannerItems(key) { return JSON.parse(localStorage.getItem('planner-entries') || '{}')[key] || []; }
+async function savePlannerItems(key, items) {
+  const all = JSON.parse(localStorage.getItem('planner-entries') || '{}');
+  all[key] = items;
+  localStorage.setItem('planner-entries', JSON.stringify(all));
+  if (currentUser && sb) {
+    await sb.from('planner_entries').upsert({ user_id: currentUser.id, date: key, items });
+    logAudit('save_planner', { date: key });
+  }
+}
+
+function renderPlanner() {
+  try {
+    const label = document.getElementById('plannerDateLabel');
+    const content = document.getElementById('plannerContent');
+    if (!content) return;
+    content.innerHTML = '';
+    if (plannerView === 'day') {
+    label.textContent = plannerDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    const key = getPlannerKey(plannerDate);
+    const items = loadPlannerItems(key);
+    const allDay = items.filter(it => it.allDay);
+    const timed = items.filter(it => !it.allDay && it.text.trim());
+    if (allDay.length) {
+      content.innerHTML = `<div class="all-day-row">${allDay.map(it => escapeHtml(it.text)).join(' · ')}</div>`;
+    }
+    content.innerHTML += '<div class="timeline" id="timeline"></div>';
+    const timeline = document.getElementById('timeline');
+    const startHour = 6, endHour = 22;
+    for (let h = startHour; h < endHour; h++) {
+      const slot = document.createElement('div');
+      slot.className = 'time-slot';
+      slot.innerHTML = `<span class="time-label">${h}:00</span>`;
+      timeline.appendChild(slot);
+    }
+    timed.forEach(item => {
+      const block = document.createElement('div');
+      const type = item.type || 'work';
+      block.className = `event-block event-${type}`;
+      let top = 8;
+      if (item.start) {
+        const [hh, mm] = item.start.split(':').map(Number);
+        top = ((hh - startHour) * 48) + (mm / 60 * 48);
+      }
+      block.style.top = Math.max(0, top) + 'px';
+      block.style.height = '36px';
+      block.textContent = (item.start ? item.start + ' ' : '') + item.text;
+      timeline.appendChild(block);
+    });
+    if (!items.length) {
+      timeline.innerHTML += '<div class="free-slot">Open day — add items below</div>';
+    }
+    // Keep the editable list under the timeline
+    const list = document.createElement('div');
+    list.style.marginTop = '16px';
+    items.forEach((item, i) => {
+      const row = document.createElement('div');
+      row.className = 'planner-item';
+      row.innerHTML = `
+        <input type="checkbox" ${item.done ? 'checked' : ''} onchange="togglePlannerItem('${key}', ${i}, this.checked)">
+        <input type="text" value="${escapeHtml(item.text)}" onchange="updatePlannerItem('${key}', ${i}, this.value)">
+        <button onclick="addToGoogleCalendar('${key}', ${i})" style="border:none;background:#ebf8ff;color:#2b6cb0;padding:4px 8px;border-radius:6px;">📅</button>
+        <button onclick="deletePlannerItem('${key}', ${i})" style="border:none;background:none;color:#e53e3e;">✕</button>
+      `;
+      list.appendChild(row);
+    });
+    content.appendChild(list);
+  } else if (plannerView === 'week') {
+    const start = new Date(plannerDate);
+    start.setDate(start.getDate() - start.getDay());
+    label.textContent = `Week of ${start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+    const grid = document.createElement('div');
+    grid.className = 'week-grid';
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start); d.setDate(start.getDate() + i);
+      const key = getPlannerKey(d);
+      const items = loadPlannerItems(key);
+      const cell = document.createElement('div');
+      cell.className = 'day-cell' + (key === todayKey ? ' today' : '');
+      cell.onclick = () => { 
+        plannerDate = new Date(d); 
+        showDayDetail(key);
+      };
+      cell.innerHTML = `<div class="date-num">${d.getDate()}</div>` + 
+        (items.length ? `<div style="font-size:0.7rem;">${items.length} item${items.length>1?'s':''}</div>` : '<div class="free-slot" style="font-size:0.65rem;">free</div>');
+      grid.appendChild(cell);
+    }
+    content.appendChild(grid);
+  } else {
+    const year = plannerDate.getFullYear(), month = plannerDate.getMonth();
+    label.textContent = plannerDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    const first = new Date(year, month, 1);
+    const grid = document.createElement('div');
+    grid.className = 'month-grid';
+    ['S','M','T','W','T','F','S'].forEach(d => {
+      const h = document.createElement('div');
+      h.style.cssText = 'text-align:center;font-weight:600;font-size:0.8rem;';
+      h.textContent = d;
+      grid.appendChild(h);
+    });
+    for (let i = 0; i < first.getDay(); i++) grid.appendChild(document.createElement('div'));
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    for (let day = 1; day <= daysInMonth; day++) {
+      const d = new Date(year, month, day);
+      const key = getPlannerKey(d);
+      const items = loadPlannerItems(key);
+      const cell = document.createElement('div');
+      cell.className = 'day-cell' + (key === todayKey ? ' today' : '');
+      cell.onclick = () => { 
+        plannerDate = new Date(d); 
+        showDayDetail(key);
+      };
+      cell.innerHTML = `<div class="date-num">${day}</div>` + (items.length ? `<div style="color:#2b6cb0; font-size:1.2rem;">●</div>` : '');
+      grid.appendChild(cell);
+    }
+    content.appendChild(grid);
+  }
+  } catch (e) {
+    const content = document.getElementById('plannerContent');
+    if (content) content.innerHTML = '<p style="color:red;">Calendar error: ' + e.message + '</p>';
+    console.error(e);
+  }
+}
+
+function showDayDetail(key) {
+  const detail = document.getElementById('dayDetail');
+  const items = loadPlannerItems(key);
+  const dateLabel = new Date(key + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+  if (!items.length) {
+    detail.innerHTML = `<p class="small">${dateLabel}: No entries</p>`;
+    return;
+  }
+  detail.innerHTML = `<h3 style="margin:8px 0;">${dateLabel}</h3>` + items.map((item, i) => `
+    <div class="planner-item">
+      <input type="checkbox" ${item.done ? 'checked' : ''} onchange="togglePlannerItem('${key}', ${i}, this.checked)">
+      <span>${item.start ? item.start + ' — ' : ''}${escapeHtml(item.text)}</span>
+      <button onclick="deletePlannerItem('${key}', ${i})" style="border:none;background:none;color:#e53e3e;">✕</button>
+    </div>
+  `).join('');
+}
+
+function addPlannerItem() {
+  openAddItemModal();
+}
+
+function copyDayToTomorrow() {
+  const key = getPlannerKey(plannerDate);
+  const items = loadPlannerItems(key);
+  const tomorrow = new Date(plannerDate);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tKey = getPlannerKey(tomorrow);
+  savePlannerItems(tKey, JSON.parse(JSON.stringify(items)));
+  showToast('Copied to ' + tomorrow.toLocaleDateString(), 'success');
+}
+function updatePlannerItem(key, index, text) {
+  const items = loadPlannerItems(key);
+  if (items[index]) items[index].text = text;
+  savePlannerItems(key, items);
+}
+function togglePlannerItem(key, index, done) {
+  const items = loadPlannerItems(key);
+  if (items[index]) items[index].done = done;
+  savePlannerItems(key, items);
+}
+function deletePlannerItem(key, index) {
+  const items = loadPlannerItems(key);
+  const deleted = items[index];
+  if (!deleted) return;
+  undoStack.push({ type: 'planner', key, index, data: deleted });
+  items.splice(index, 1);
+  savePlannerItems(key, items);
+  renderPlanner();
+  showUndo('Item deleted');
+}
+function addToGoogleCalendar(key, index) {
+  const items = loadPlannerItems(key);
+  const item = items[index];
+  if (!item || !item.text.trim()) return;
+  const date = key.replace(/-/g, '');
+  const next = new Date(key + 'T12:00:00');
+  next.setDate(next.getDate() + 1);
+  const endDate = next.toISOString().slice(0, 10).replace(/-/g, '');
+  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(item.text.trim())}&dates=${date}/${endDate}&details=${encodeURIComponent('From Daily Task Manager')}&sf=true&output=xml`;
+  window.open(url, '_blank');
+}
+
+function checkReminders() {
+  const now = new Date();
+  const hour = now.getHours();
+  const minute = now.getMinutes();
+  const banner = document.getElementById('reminderBanner');
+  const text = document.getElementById('reminderText');
+  if (!banner || !text) return;
+
+  const dismissed = sessionStorage.getItem('reminder-dismissed-' + todayKey + '-' + hour);
+  if (dismissed) { banner.style.display = 'none'; return; }
+
+  let msg = '';
+  if (hour === 6 || (hour === 7 && minute < 30)) msg = 'Morning setup — set your Top 3 and energy.';
+  else if (hour === 8) msg = 'Breakfast supplements.';
+  else if (hour === 12) msg = 'Midday check + lunch supplements.';
+  else if (hour === 18 || hour === 20) msg = 'Evening review — what got done?';
+  else if (hour === 21) msg = 'Bedtime supplements.';
+
+  if (msg) {
+    text.textContent = msg;
+    banner.style.display = 'block';
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+function dismissReminder() {
+  const hour = new Date().getHours();
+  sessionStorage.setItem('reminder-dismissed-' + todayKey + '-' + hour, '1');
+  document.getElementById('reminderBanner').style.display = 'none';
+}
+
+// Run on load and every minute
+setInterval(checkReminders, 60000);
+setTimeout(checkReminders, 500);
+
+if (sb) {
+  sb.auth.getSession().then(({ data }) => {
+    if (data.session) {
+      currentUser = data.session.user;
+      showApp();
+    }
+  });
+}
+</script>
+<div id="toastContainer"></div>
+
+<div id="addItemModal">
+  <div id="addItemBox">
+    <h3>Add entry</h3>
+    <input type="text" id="newItemText" placeholder="What needs to be done?" autocomplete="off">
+    <div class="row">
+      <input type="time" id="newItemStart" placeholder="Start time (optional)">
+    </div>
+    <select id="newItemType">
+      <option value="work">Work</option>
+      <option value="personal">Personal</option>
+      <option value="health">Health</option>
+      <option value="errand">Errand</option>
+    </select>
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:0.95rem;">
+      <input type="checkbox" id="newItemAllDay" style="width:auto;"> All-day
+    </label>
+    <button class="primary" onclick="confirmAddItem()">Add entry</button>
+    <button class="secondary" onclick="closeAddItemModal()">Cancel</button>
+  </div>
+</div>
+
+</body>
+</html>
