@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
-<title>Daily Task Manager</title>
+<title>TinyStarts</title>
 <meta name="theme-color" content="#1a365d">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;650&family=Inter:wght@400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&family=Inter:wght@400;500&display=swap');
   :root {
     --bg: oklch(98% 0.005 250);
     --card: oklch(100% 0 0);
@@ -54,36 +54,62 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 18px 24px;
-    margin: 0 0 24px 0;
-    background: linear-gradient(in oklch shorter hue, var(--primary), var(--accent));
-    color: contrast-color(var(--primary));
-    border-radius: 0 0 24px 24px;
-    box-shadow: 0 8px 24px color-mix(in oklch, var(--primary) 30%, transparent);
+    padding: 16px 24px;
+    margin: 0 0 28px 0;
+    background: var(--card);
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.03);
+  }
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .header-emblem {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    border-radius: 10px;
+    background: color-mix(in oklch, var(--primary) 8%, transparent);
+    padding: 4px;
   }
   .app-header h1 {
-    font-family: 'Outfit', sans-serif;
-    font-size: 1.5rem;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-size: 1.35rem;
     margin: 0;
     font-weight: 700;
-    letter-spacing: -0.02em;
-    color: contrast-color(var(--primary));
+    letter-spacing: -0.03em;
+    color: var(--text);
+    line-height: 1.1;
   }
-  .signature { font-size: 0.8rem; opacity: 0.9; margin-top: 2px; color: contrast-color(var(--primary)); }
-  .header-right { display: flex; align-items: center; gap: 10px; }
-  .header-right button {
-    background: color-mix(in oklch, white 20%, transparent);
-    border: 1px solid color-mix(in oklch, white 30%, transparent);
-    color: contrast-color(var(--primary));
-    padding: 8px 14px;
-    border-radius: 999px;
-    cursor: pointer;
-    font-size: 0.85rem;
+  .signature {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 2px;
     font-weight: 500;
-    transition: background 0.2s;
+    letter-spacing: 0.01em;
+  }
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .header-right button {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 500;
+    transition: background 0.15s, border-color 0.15s;
   }
   .header-right button:hover {
-    background: color-mix(in oklch, white 30%, transparent);
+    background: color-mix(in oklch, var(--primary) 8%, transparent);
+    border-color: var(--primary);
   }
   .header-icon {
     width: 40px; height: 40px; background: rgba(255,255,255,0.2);
@@ -100,11 +126,27 @@
     transition: box-shadow 0.2s;
   }
   .card:hover { box-shadow: var(--shadow-hover); }
+  .mascot-inline {
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+    margin: 0 auto 8px;
+    display: block;
+    opacity: 0.9;
+  }
+  .mascot-small {
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
   h2 {
-    font-family: 'Outfit', sans-serif;
-    font-size: 1.2rem;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-size: 1.1rem;
     margin: 0 0 14px;
     font-weight: 600;
+    letter-spacing: -0.02em;
   }
   .energy {
     display: grid;
@@ -336,6 +378,60 @@
   #authBox button { width: 100%; margin-top: 8px; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 10px; font-size: 1rem; cursor: pointer; }
   .user-bar { text-align: right; font-size: 0.85rem; color: var(--muted); margin-bottom: 8px; }
   .user-bar button { background: none; border: none; color: var(--primary); cursor: pointer; }
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .dash-tile {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s, background 0.2s;
+    box-shadow: var(--shadow);
+    min-height: 100px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .dash-tile.illuminated {
+    background: color-mix(in oklch, var(--primary) 12%, var(--card));
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 20%, transparent), var(--shadow);
+  }
+  .dash-tile.completed {
+    background: var(--card) !important;
+    border-color: var(--border) !important;
+  }
+  .trophy {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    font-size: 1.1rem;
+    z-index: 5;
+  }
+  .dash-tile.optional {
+    opacity: 0.85;
+  }
+  .dash-tile .icon { font-size: 1.9rem; margin-bottom: 6px; }
+  .dash-tile h3 { margin: 0; font-size: 0.95rem; font-weight: 600; }
+  .section-panel { display: none; }
+  .section-panel.active { display: block; }
+  .back-btn {
+    background: none;
+    border: none;
+    color: var(--primary);
+    cursor: pointer;
+    font-size: 0.9rem;
+    margin-bottom: 12px;
+    padding: 0;
+  }
   footer { text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 30px; padding-bottom: 20px; }
 
   /* Modern toast notifications */
@@ -413,21 +509,41 @@
 
 
   @media (max-width: 640px) {
-    body { padding: 0 0 32px; }
-    .app-header { flex-direction: column; align-items: flex-start; gap: 8px; padding: 16px; margin-bottom: 20px; }
+    body { padding: 0 0 80px; }
+    .app-header { flex-direction: column; align-items: flex-start; gap: 8px; padding: 16px; margin-bottom: 16px; }
     #mainApp { padding: 0 12px; }
     .header-right { width: 100%; justify-content: space-between; }
-    .tabs button { max-width: none; font-size: 0.95rem; }
-    .energy { flex-direction: column; }
+    .tabs button { max-width: none; font-size: 0.95rem; min-height: 48px; }
+    .dashboard-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .dash-tile {
+      min-height: 96px;
+      padding: 16px 8px;
+    }
+    .dash-tile .icon { font-size: 1.7rem; }
+    .dash-tile h3 { font-size: 0.88rem; }
+    .energy { grid-template-columns: 1fr; }
+    .energy button { min-height: 48px; }
     .task-row { flex-direction: column; align-items: stretch; }
-    .task-row input[type="checkbox"] { margin-top: 0; align-self: flex-start; }
+    .task-row input[type="checkbox"] { margin-top: 0; align-self: flex-start; min-width: 24px; min-height: 24px; }
+    button.save, button.add, button.export, button.affirm {
+      min-height: 48px;
+      padding: 14px;
+    }
+    .mobile-save {
+      position: sticky;
+      bottom: 12px;
+      z-index: 50;
+      box-shadow: 0 -4px 12px rgba(0,0,0,0.1);
+    }
     .timeline { padding-left: 8px; margin-left: 50px; }
     .time-label { left: -58px; width: 50px; font-size: 0.7rem; }
     .week-grid, .month-grid, .energy-cal { gap: 4px; }
     .day-cell, .energy-day { min-height: 46px; padding: 4px 2px; font-size: 0.7rem; aspect-ratio: auto; }
     .day-cell .date-num { font-size: 0.75rem; }
     .planner-nav { flex-wrap: wrap; }
-    button.save, button.add, button.export { padding: 14px; }
     h1 { font-size: 1.25rem; }
     .chart-container { height: 180px; }
   }
@@ -446,10 +562,11 @@
 <div id="authOverlay">
   <div id="authBox">
     <h2>Sign in</h2>
-    <input type="text" id="authEmail" placeholder="Username" autocomplete="username">
+    <input type="text" id="authEmail" placeholder="Email" autocomplete="username">
     <input type="password" id="authPassword" placeholder="Password" autocomplete="current-password">
+    <input type="text" id="authUsername" placeholder="Display name (shown in app)" autocomplete="nickname" style="display:none;">
     <button onclick="signIn()">Sign in</button>
-    <button onclick="signUp()" style="background:#38a169;">Create account</button>
+    <button onclick="showSignUp()">Create account</button>
     <div id="authStatus" class="small" style="margin-top:12px; min-height:2em;"></div>
   </div>
 </div>
@@ -460,11 +577,11 @@
     padding: 0 20px;
   }
   <div class="app-header">
-    <div style="display:flex; align-items:center;">
-      <div class="header-icon">✓</div>
+    <div class="header-left">
+      <img src="emblem.png" alt="" class="header-emblem">
       <div>
-        <h1 id="pageTitle">Daily Task Manager</h1>
-        <div class="signature">Built for focus</div>
+        <h1 id="pageTitle">TinyStarts</h1>
+        <div class="signature">Low friction. No guilt.</div>
       </div>
     </div>
     <div class="header-right">
@@ -484,91 +601,176 @@
   </div>
 
   <div id="todayTab" class="tab-content active">
-    <div class="card">
-      <h2>Positive Affirmation</h2>
-      <div class="affirmation-box" id="affirmationDisplay">I am capable of starting, even when it feels hard.</div>
-      <textarea id="affirmation" placeholder="Write or edit today’s affirmation…"></textarea>
-      <div>
-        <button class="affirm" onclick="setAffirmation()">New affirmation</button>
+    <div id="dashboardView">
+      <div style="text-align:center; margin-bottom:16px;">
+        <img src="emblem.png" alt="" class="mascot-inline" style="width:56px;height:80px;">
+        <p class="small" style="margin:0;">Pick one thing. Start small.</p>
+      </div>
+      <div class="dashboard-grid">
+        <div class="dash-tile illuminated" data-section="affirmation" onclick="openSection('affirmation')">
+          <span class="trophy" style="display:none;">🏆</span>
+          <div class="icon">✨</div>
+          <h3>Affirmation</h3>
+        </div>
+        <div class="dash-tile illuminated" data-section="energy" onclick="openSection('energy')">
+          <span class="trophy" style="display:none;">🏆</span>
+          <div class="icon">⚡</div>
+          <h3>Energy</h3>
+        </div>
+        <div class="dash-tile illuminated" data-section="braindump" onclick="openSection('braindump')">
+          <span class="trophy" style="display:none;">🏆</span>
+          <div class="icon">🧠</div>
+          <h3>Brain Dump</h3>
+        </div>
+        <div class="dash-tile illuminated" data-section="top3" onclick="openSection('top3')">
+          <span class="trophy" style="display:none;">🏆</span>
+          <div class="icon">🎯</div>
+          <h3>Top 3</h3>
+        </div>
+        <div class="dash-tile optional" data-section="helpers" onclick="openSection('helpers')">
+          <span class="trophy" style="display:none;">🏆</span>
+          <div class="icon">🛠️</div>
+          <h3>Quick Helpers</h3>
+        </div>
+        <div class="dash-tile optional" data-section="micro" onclick="openSection('micro')">
+          <span class="trophy" style="display:none;">🏆</span>
+          <div class="icon">⏱️</div>
+          <h3>Micro-starts</h3>
+        </div>
+        <div class="dash-tile optional" data-section="progress" onclick="openSection('progress')">
+          <span class="trophy" style="display:none;">🏆</span>
+          <div class="icon">📊</div>
+          <h3>Progress</h3>
+        </div>
+        <div class="dash-tile illuminated" data-section="endofday" onclick="openSection('endofday')">
+          <span class="trophy" style="display:none;">🏆</span>
+          <div class="icon">🌙</div>
+          <h3>End of Day</h3>
+        </div>
+      </div>
+      <button class="save mobile-save" onclick="saveDay()" style="max-width:300px; margin:10px auto; display:block;">Save Today</button>
+      <div class="status" id="status"></div>
+    </div>
+
+    <div id="section-affirmation" class="section-panel">
+      <button class="back-btn" onclick="closeSection()">← Back (keep open)</button>
+      <div class="card">
+        <h2>Positive Affirmation</h2>
+        <img src="mascot.png" alt="" class="mascot-inline" style="width:48px;height:48px;">
+        <div class="affirmation-box" id="affirmationDisplay">I am capable of starting, even when it feels hard.</div>
+        <textarea id="affirmation" placeholder="Write or edit today’s affirmation…"></textarea>
+        <div>
+          <button class="affirm" onclick="setAffirmation()">New affirmation</button>
+        </div>
+        <button class="save" onclick="saveAndReturn('affirmation')" style="margin-top:16px;">Save & return</button>
       </div>
     </div>
 
-    <div class="card">
-      <h2>Energy Level</h2>
-      <div class="energy" id="energyBtns">
-        <button data-level="Low">Low</button>
-        <button data-level="Medium">Medium</button>
-        <button data-level="High">High</button>
-      </div>
-      <p class="small">On low-energy days your Top 3 can be very small.</p>
-      <div id="energyCalendar" style="margin-top:16px;"></div>
-      <div id="energyStreak" class="small" style="margin-top:8px; text-align:center;"></div>
-      <p class="small" style="text-align:center; margin-top:4px;">You can restart a streak anytime — no guilt.</p>
-    </div>
-
-    <div class="card">
-      <h2>Quick Helpers</h2>
-      <button class="add" onclick="imStuck()" style="background:#dd6b20;">I’m stuck</button>
-      <div id="stuckHelp" class="small" style="margin-top:8px;"></div>
-      <div style="margin-top:12px;">
-        <button class="affirm" onclick="startTimer(10)">10 min</button>
-        <button class="affirm" onclick="startTimer(25)">25 min</button>
-        <button class="affirm" onclick="stopTimer()">Stop</button>
-        <div id="timerDisplay" style="font-size:2rem; text-align:center; margin:8px 0; font-weight:600;"></div>
+    <div id="section-energy" class="section-panel">
+      <button class="back-btn" onclick="closeSection()">← Back (keep open)</button>
+      <div class="card">
+        <h2>Energy Level</h2>
+        <div class="energy" id="energyBtns">
+          <button data-level="Low">Low</button>
+          <button data-level="Medium">Medium</button>
+          <button data-level="High">High</button>
+        </div>
+        <p class="small">On low-energy days your Top 3 can be very small.</p>
+        <div id="energyCalendar" style="margin-top:16px; min-height:120px; background:#f8fafc; border-radius:12px; padding:8px;">
+          <p class="small" style="text-align:center;">Select an energy level above to see the calendar.</p>
+        </div>
+        <div id="energyStreak" class="small" style="margin-top:8px; text-align:center;"></div>
+        <p class="small" style="text-align:center; margin-top:4px;">You can restart a streak anytime — no guilt.</p>
+        <button class="save" onclick="saveAndReturn('energy')" style="margin-top:16px;">Save & return</button>
       </div>
     </div>
 
-    <div class="card">
-      <h2>Brain Dump → Top 3</h2>
-      <textarea id="brainDump" placeholder="Dump everything on your mind…"></textarea>
-      <button class="add" onclick="suggestTop3()">Suggest Top 3</button>
-      <div id="suggestions" class="small"></div>
+    <div id="section-helpers" class="section-panel">
+      <button class="back-btn" onclick="closeSection()">← Back (keep open)</button>
+      <div class="card">
+        <h2>Quick Helpers</h2>
+        <button class="add" onclick="imStuck()" style="background:#dd6b20;">I’m stuck</button>
+        <div id="stuckHelp" class="small" style="margin-top:8px;"></div>
+        <div style="margin-top:12px;">
+          <button class="affirm" onclick="startTimer(10)">10 min</button>
+          <button class="affirm" onclick="startTimer(25)">25 min</button>
+          <button class="affirm" onclick="stopTimer()">Stop</button>
+          <div id="timerDisplay" style="font-size:2rem; text-align:center; margin:8px 0; font-weight:600;"></div>
+        </div>
+        <button class="save" onclick="saveAndReturn('helpers')" style="margin-top:16px;">Save & return</button>
+      </div>
     </div>
 
-    <div class="card">
-      <h2>Top 3 Priorities</h2>
-      <p class="small">Only these are required. Write concrete next actions.</p>
-      <div id="top3"></div>
+    <div id="section-braindump" class="section-panel">
+      <button class="back-btn" onclick="closeSection()">← Back (keep open)</button>
+      <div class="card">
+        <h2>Brain Dump → Top 3</h2>
+        <textarea id="brainDump" placeholder="Dump everything on your mind…"></textarea>
+        <button class="add" onclick="suggestTop3()">Suggest Top 3</button>
+        <div id="suggestions" class="small"></div>
+        <button class="save" onclick="saveAndReturn('braindump')" style="margin-top:16px;">Save & return</button>
+      </div>
     </div>
 
-    <div class="card">
-      <h2>Micro-starts</h2>
-      <p class="small">Tiny tasks under 5 minutes.</p>
-      <div class="micro" id="microList"></div>
-      <button class="add" onclick="addMicro()">+ Add micro-start</button>
+    <div id="section-top3" class="section-panel">
+      <button class="back-btn" onclick="closeSection()">← Back (keep open)</button>
+      <div class="card">
+        <h2>Top 3 Priorities</h2>
+        <p class="small">Only these are required. Write concrete next actions.</p>
+        <div id="top3">
+          <div class="task-row"><input type="checkbox"><input type="text" placeholder="Top priority 1"></div>
+          <div class="task-row"><input type="checkbox"><input type="text" placeholder="Top priority 2"></div>
+          <div class="task-row"><input type="checkbox"><input type="text" placeholder="Top priority 3"></div>
+        </div>
+        <button class="save" onclick="saveAndReturn('top3')" style="margin-top:16px;">Save & return</button>
+      </div>
     </div>
 
-    <div class="card">
-      <h2>End of Day</h2>
-      <button class="affirm" onclick="logOneWin()">Log one win</button>
-      <label class="small">What got done:</label>
-      <textarea id="gotDone" placeholder="Any progress counts…"></textarea>
-      <label class="small">Carry over (no judgment):</label>
-      <textarea id="carryOver"></textarea>
-      <label class="small">Tomorrow’s #1:</label>
-      <input type="text" id="tomorrow1" placeholder="One clear next action" style="width:100%;">
+    <div id="section-micro" class="section-panel">
+      <button class="back-btn" onclick="closeSection()">← Back (keep open)</button>
+      <div class="card">
+        <h2>Micro-starts</h2>
+        <p class="small">Tiny tasks under 5 minutes.</p>
+        <div class="micro" id="microList"></div>
+        <button class="add" onclick="addMicro()">+ Add micro-start</button>
+        <button class="save" onclick="saveAndReturn('micro')" style="margin-top:16px;">Save & return</button>
+      </div>
     </div>
 
-    <button class="save" onclick="saveDay()">Save Today</button>
-    <div class="status" id="status"></div>
-
-    <div class="card">
-      <h2>Weekly Progress</h2>
-      <p class="small">Top 3 completion rate over the last 7 days.</p>
-      <div class="chart-container"><canvas id="weekChart"></canvas></div>
+    <div id="section-endofday" class="section-panel">
+      <button class="back-btn" onclick="closeSection()">← Back (keep open)</button>
+      <div class="card">
+        <h2>End of Day</h2>
+        <img src="mascot.png" alt="" class="mascot-small">
+        <button class="affirm" onclick="logOneWin()">Log one win</button>
+        <label class="small">What got done:</label>
+        <textarea id="gotDone" placeholder="Any progress counts…"></textarea>
+        <label class="small">Carry over (no judgment):</label>
+        <textarea id="carryOver"></textarea>
+        <label class="small">Tomorrow’s #1:</label>
+        <input type="text" id="tomorrow1" placeholder="One clear next action" style="width:100%;">
+        <button class="save" onclick="saveAndReturn('endofday')" style="margin-top:16px;">Save & return</button>
+      </div>
     </div>
 
-    <div class="card">
-      <h2>Weekly Summary</h2>
-      <div id="weeklySummary" class="small"></div>
+    <div id="section-progress" class="section-panel">
+      <button class="back-btn" onclick="closeSection()">← Back (keep open)</button>
+      <div class="card">
+        <h2>Weekly Progress</h2>
+        <p class="small">Top 3 completion rate over the last 7 days.</p>
+        <div class="chart-container"><canvas id="weekChart"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Weekly Summary</h2>
+        <div id="weeklySummary" class="small"></div>
+      </div>
+      <div class="card">
+        <h2>Recent Days</h2>
+        <div id="history"></div>
+      </div>
+      <button class="export" onclick="exportData()">Export All Data (JSON)</button>
+      <button class="save" onclick="saveAndReturn('progress')" style="margin-top:12px;">Save & return</button>
     </div>
-
-    <div class="card">
-      <h2>Recent Days</h2>
-      <div id="history"></div>
-    </div>
-
-    <button class="export" onclick="exportData()">Export All Data (JSON)</button>
   </div>
 
   <div id="plannerTab" class="tab-content">
@@ -718,13 +920,34 @@ async function signIn() {
   }
 }
 
+function showSignUp() {
+  document.getElementById('authUsername').style.display = 'block';
+  document.querySelector('#authBox h2').textContent = 'Create account';
+  document.querySelector('#authBox button').onclick = signUp;
+  document.querySelector('#authBox button').textContent = 'Create account';
+}
+
 async function signUp() {
   setAuthStatus('Creating account…');
   if (!sb) { setAuthStatus('Supabase not loaded'); return; }
   const email = document.getElementById('authEmail').value.trim();
   const password = document.getElementById('authPassword').value;
-  const { error } = await sb.auth.signUp({ email, password });
-  setAuthStatus(error ? error.message : 'Account created. Sign in now.');
+  const username = document.getElementById('authUsername').value.trim();
+  if (!email || !password || !username) {
+    setAuthStatus('Email, password, and display name required');
+    return;
+  }
+  const { error } = await sb.auth.signUp({
+    email,
+    password,
+    options: { data: { username } }
+  });
+  setAuthStatus(error ? error.message : 'Account created. You can sign in now.');
+}
+
+function getDisplayName() {
+  if (!currentUser) return '';
+  return currentUser.user_metadata?.username || currentUser.email?.split('@')[0] || 'User';
 }
 
 async function signOut() {
@@ -739,7 +962,7 @@ function showApp() {
   if (overlay) overlay.style.display = 'none';
   if (main) main.style.display = 'block';
   const emailEl = document.getElementById('userEmail');
-  if (emailEl && currentUser) emailEl.textContent = currentUser.email || '';
+  if (emailEl && currentUser) emailEl.textContent = getDisplayName();
   const dateEl = document.getElementById('todayDate');
   if (dateEl) dateEl.textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   loadFromCloud().then(() => { if (typeof loadDay === 'function') loadDay(); }).catch(() => {});
@@ -890,6 +1113,7 @@ function setAffirmation(text) {
   }
   document.getElementById('affirmation').value = text;
   document.getElementById('affirmationDisplay').textContent = text;
+  setSectionComplete('affirmation');
   saveDay();
 }
 
@@ -917,11 +1141,22 @@ function getCurrentData() {
 
 async function saveDay() {
   const all = JSON.parse(localStorage.getItem('task-days') || '{}');
-  all[todayKey] = getCurrentData();
+  const data = getCurrentData();
+  all[todayKey] = data;
   localStorage.setItem('task-days', JSON.stringify(all));
-  document.getElementById('affirmationDisplay').textContent = all[todayKey].affirmation;
+  document.getElementById('affirmationDisplay').textContent = data.affirmation;
   document.getElementById('status').textContent = 'Saved ✓';
   setTimeout(() => document.getElementById('status').textContent = '', 2000);
+
+  // Mark sections complete based on content
+  if (data.affirmation && data.affirmation !== defaultAffirmation) setSectionComplete('affirmation');
+  if (data.energy) setSectionComplete('energy');
+  if (data.top3 && data.top3.some(t => t.text)) setSectionComplete('top3');
+  if (document.getElementById('brainDump')?.value.trim()) setSectionComplete('braindump');
+  if (data.gotDone || data.tomorrow1) setSectionComplete('endofday');
+  if (data.micro && data.micro.length) setSectionComplete('micro');
+
+  updateTileStates();
   renderHistory();
   renderWeekGraph();
   if (currentUser && sb) {
@@ -956,9 +1191,6 @@ function renderEnergyCalendar() {
 
   const faces = { High: '😊', Medium: '😐', Low: '😞' };
   const colors = { High: '#c6f6d5', Medium: '#fefcbf', Low: '#fed7d7' };
-  let currentStreak = 0;
-  let maxStreak = 0;
-  let tempStreak = 0;
   const todayStr = todayKey;
 
   for (let day = 1; day <= daysInMonth; day++) {
@@ -967,24 +1199,13 @@ function renderEnergyCalendar() {
     const energy = all[key]?.energy;
     const isToday = key === todayStr;
     const face = energy ? (faces[energy] || '') : '';
-    const bg = energy ? (colors[energy] || '#f8fafc') : '#f8fafc';
-    html += `<div class="energy-day${isToday ? ' today' : ''}" style="background:${bg}" title="${energy || 'No entry'}">${day}<br><span class="face">${face}</span></div>`;
-
-    if (key <= todayStr) {
-      if (energy) {
-        tempStreak++;
-        if (tempStreak > maxStreak) maxStreak = tempStreak;
-        if (key === todayStr || (day === daysInMonth && key <= todayStr)) currentStreak = tempStreak;
-      } else {
-        if (key < todayStr) tempStreak = 0;
-      }
-    }
+    const bg = energy ? (colors[energy] || '#f8fafc') : '#ffffff';
+    html += `<div class="energy-day${isToday ? ' today' : ''}" style="background:${bg}"><div style="font-size:0.7rem;">${day}</div><div class="face">${face}</div></div>`;
   }
   html += '</div>';
   container.innerHTML = html;
 
-  // Recalculate current streak properly (consecutive days up to today with energy)
-  currentStreak = 0;
+  let currentStreak = 0;
   for (let i = 0; i < 60; i++) {
     const d = new Date();
     d.setDate(d.getDate() - i);
@@ -992,9 +1213,11 @@ function renderEnergyCalendar() {
     if (all[key]?.energy) currentStreak++;
     else break;
   }
-  streakEl.textContent = currentStreak > 0
-    ? `Current streak: ${currentStreak} day${currentStreak > 1 ? 's' : ''} · Best this month: ${maxStreak}`
-    : 'Log energy to start a streak';
+  if (streakEl) {
+    streakEl.textContent = currentStreak > 0
+      ? `Current streak: ${currentStreak} day${currentStreak > 1 ? 's' : ''}`
+      : 'Select energy to start';
+  }
 }
 
 const stuckHelps = [
@@ -1299,24 +1522,108 @@ function exportData() {
   a.click();
 }
 
-document.getElementById('energyBtns').addEventListener('click', e => {
-  if (e.target.tagName === 'BUTTON') {
+document.addEventListener('click', e => {
+  if (e.target.closest('#energyBtns') && e.target.tagName === 'BUTTON') {
     document.querySelectorAll('.energy button').forEach(b => b.classList.remove('active'));
     e.target.classList.add('active');
-    saveDay();
+    if (typeof saveDay === 'function') saveDay();
+    if (typeof renderEnergyCalendar === 'function') renderEnergyCalendar();
   }
 });
-document.getElementById('affirmation').addEventListener('input', e => {
-  document.getElementById('affirmationDisplay').textContent = e.target.value || defaultAffirmation;
+
+document.addEventListener('DOMContentLoaded', () => {
+  const aff = document.getElementById('affirmation');
+  if (aff) {
+    aff.addEventListener('input', e => {
+      const display = document.getElementById('affirmationDisplay');
+      if (display) display.textContent = e.target.value || defaultAffirmation;
+    });
+  }
 });
 
 // Planner
+const REQUIRED_SECTIONS = ['affirmation', 'energy', 'braindump', 'top3', 'endofday'];
+const OPTIONAL_SECTIONS = ['helpers', 'micro', 'progress'];
+
+function getTodayCompletions() {
+  const all = JSON.parse(safeGet('tile-completions', '{}'));
+  return all[todayKey] || {};
+}
+
+function setSectionComplete(section, complete = true) {
+  const all = JSON.parse(safeGet('tile-completions', '{}'));
+  if (!all[todayKey]) all[todayKey] = {};
+  all[todayKey][section] = complete;
+  safeSet('tile-completions', JSON.stringify(all));
+  updateTileStates();
+}
+
+function updateTileStates() {
+  const completions = getTodayCompletions();
+  document.querySelectorAll('.dash-tile').forEach(tile => {
+    const section = tile.dataset.section;
+    const isRequired = REQUIRED_SECTIONS.includes(section);
+    const isDone = !!completions[section];
+    tile.classList.remove('illuminated', 'completed');
+    const trophy = tile.querySelector('.trophy');
+    if (isDone) {
+      tile.classList.add('completed');
+      if (trophy) trophy.style.display = 'block';
+    } else {
+      if (trophy) trophy.style.display = 'none';
+      if (isRequired) tile.classList.add('illuminated');
+    }
+  });
+}
+
+function checkDayComplete() {
+  const completions = getTodayCompletions();
+  return REQUIRED_SECTIONS.every(s => completions[s]);
+}
+
+function openSection(id) {
+  const dash = document.getElementById('dashboardView');
+  if (dash) dash.style.display = 'none';
+  document.querySelectorAll('.section-panel').forEach(p => p.classList.remove('active'));
+  const panel = document.getElementById('section-' + id);
+  if (panel) panel.classList.add('active');
+  if (id === 'energy') {
+    setTimeout(renderEnergyCalendar, 20);
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function closeSection() {
+  document.querySelectorAll('.section-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('dashboardView').style.display = 'block';
+  updateTileStates();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function saveAndReturn(section) {
+  // Always mark complete and show trophy immediately
+  const tile = document.querySelector(`.dash-tile[data-section="${section}"]`);
+  if (tile) {
+    tile.classList.remove('illuminated');
+    tile.classList.add('completed');
+    const trophy = tile.querySelector('.trophy');
+    if (trophy) trophy.style.display = 'block';
+  }
+  try {
+    setSectionComplete(section, true);
+    if (typeof saveDay === 'function') saveDay();
+  } catch (e) {
+    console.error(e);
+  }
+  closeSection();
+}
+
 function switchTab(tab) {
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tabs button').forEach(el => el.classList.remove('active'));
   document.getElementById(tab + 'Tab').classList.add('active');
   document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
-  document.getElementById('pageTitle').textContent = tab === 'planner' ? 'Schedule' : "Today's Tasks";
+  document.getElementById('pageTitle').textContent = tab === 'planner' ? 'Schedule' : 'TinyStarts';
   if (tab === 'planner') {
     try { 
       renderPlanner(); 
@@ -1524,7 +1831,7 @@ function addToGoogleCalendar(key, index) {
   const next = new Date(key + 'T12:00:00');
   next.setDate(next.getDate() + 1);
   const endDate = next.toISOString().slice(0, 10).replace(/-/g, '');
-  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(item.text.trim())}&dates=${date}/${endDate}&details=${encodeURIComponent('From Daily Task Manager')}&sf=true&output=xml`;
+  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(item.text.trim())}&dates=${date}/${endDate}&details=${encodeURIComponent('From TinyStarts')}&sf=true&output=xml`;
   window.open(url, '_blank');
 }
 
@@ -1596,5 +1903,23 @@ if (sb) {
   </div>
 </div>
 
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Ensure Top 3 fields exist
+  const top3 = document.getElementById('top3');
+  if (top3 && !top3.querySelector('input')) {
+    top3.innerHTML = `
+      <div class="task-row"><input type="checkbox"><input type="text" placeholder="Top priority 1"></div>
+      <div class="task-row"><input type="checkbox"><input type="text" placeholder="Top priority 2"></div>
+      <div class="task-row"><input type="checkbox"><input type="text" placeholder="Top priority 3"></div>
+    `;
+  }
+  if (typeof loadDay === 'function') loadDay();
+  setTimeout(() => {
+    if (typeof updateTileStates === 'function') updateTileStates();
+    if (typeof renderEnergyCalendar === 'function') renderEnergyCalendar();
+  }, 100);
+});
+</script>
 </body>
 </html>
