@@ -2358,16 +2358,43 @@
 
   function getDisplayName() {
     if (!currentUser) return '';
-    return (currentUser.user_metadata && currentUser.user_metadata.username) ||
+    let name = (currentUser.user_metadata && currentUser.user_metadata.username) ||
       (currentUser.email && currentUser.email.split('@')[0]) ||
       'Signed in';
+    if (String(name).indexOf('@') !== -1) name = String(name).split('@')[0];
+    if (name && String(name).toLowerCase().endsWith('@' + AUTH_EMAIL_DOMAIN)) {
+      name = String(name).slice(0, -1 - AUTH_EMAIL_DOMAIN.length);
+    }
+    return name || 'Signed in';
+  }
+
+  function closeAccountMenu() {
+    const menu = $('accountMenu');
+    const btn = $('accountBtn');
+    if (menu) menu.hidden = true;
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  }
+
+  function toggleAccountMenu() {
+    const menu = $('accountMenu');
+    const btn = $('accountBtn');
+    if (!menu || !btn) return;
+    const willOpen = menu.hidden;
+    closeDayChrome();
+    menu.hidden = !willOpen;
+    btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
   }
 
   function updateAccountUI() {
+    const name = currentUser ? getDisplayName() : '';
     const emailEl = $('userEmail');
-    if (emailEl) emailEl.textContent = currentUser ? getDisplayName() : '';
-    const headerOut = $('headerSignOutBtn');
-    if (headerOut) headerOut.hidden = !currentUser;
+    if (emailEl) emailEl.textContent = name;
+    const who = $('accountWho');
+    if (who) who.textContent = name ? ('Signed in as ' + name) : 'Signed in';
+    const initial = $('accountInitial');
+    if (initial) initial.textContent = name ? String(name).charAt(0).toUpperCase() : '?';
+    const accountBtn = $('accountBtn');
+    if (accountBtn) accountBtn.setAttribute('aria-label', name ? ('Account menu, signed in as ' + name) : 'Account menu');
     const status = $('accountStatus');
     if (status) {
       status.textContent = currentUser
@@ -2444,6 +2471,9 @@
     });
     if ($('weeklySummary')) $('weeklySummary').textContent = '';
     if ($('userEmail')) $('userEmail').textContent = '';
+    if ($('accountWho')) $('accountWho').textContent = 'Signed in';
+    if ($('accountInitial')) $('accountInitial').textContent = '?';
+    closeAccountMenu();
     if ($('authPassword')) $('authPassword').value = '';
     editingKey = null;
     editingPlanner = null;
@@ -2901,8 +2931,26 @@
   function bindEvents() {
     $('themeBtn').addEventListener('click', function () {
       setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+      closeAccountMenu();
     });
-    $('settingsBtn').addEventListener('click', function () { updateAccountUI(); fillSyncForm(); openModal('settingsModal'); });
+    $('settingsBtn').addEventListener('click', function () {
+      closeAccountMenu();
+      updateAccountUI();
+      fillSyncForm();
+      openModal('settingsModal');
+    });
+    if ($('accountBtn')) $('accountBtn').addEventListener('click', function (e) {
+      e.stopPropagation();
+      toggleAccountMenu();
+    });
+    document.addEventListener('click', function (e) {
+      const menu = $('accountMenu');
+      const btn = $('accountBtn');
+      if (!menu || menu.hidden) return;
+      if (btn && (e.target === btn || btn.contains(e.target))) return;
+      if (menu.contains(e.target)) return;
+      closeAccountMenu();
+    });
     $('closeSettingsBtn').addEventListener('click', function () { closeModal('settingsModal'); });
     $('energyBtns').addEventListener('click', function (e) {
       const btn = e.target.closest('button[data-level]');
@@ -3031,6 +3079,7 @@
     $('syncCreateBtn').addEventListener('click', createSecretGist);
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') {
+        closeAccountMenu();
         closeDayChrome();
         ['settingsModal', 'addItemModal', 'winModal'].forEach(closeModal);
       }
@@ -3117,7 +3166,7 @@
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js?v=4').catch(function (err) {
+    navigator.serviceWorker.register('sw.js?v=5').catch(function (err) {
       console.warn('Service worker not registered:', err);
     });
   });
