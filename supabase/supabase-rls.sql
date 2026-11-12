@@ -3,25 +3,34 @@
 -- It does not change table columns. Existing task_days, planner_entries,
 -- and audit_log stay the same. Safe to review before running.
 --
--- Goal: only the signed-in user can read or write their own rows.
+-- Goal: only the signed-in user can read or write their own planner rows.
+-- The audit log is insert-only for that same user (no read, update, or delete).
 -- The public anon key in the web app is not a secret; these policies
 -- are what actually protect the data.
+-- Turning off new sign-ups is an Auth setting in the Supabase dashboard,
+-- not something this SQL file can do.
 
 alter table public.task_days enable row level security;
 alter table public.planner_entries enable row level security;
 alter table public.audit_log enable row level security;
+alter table public.task_days force row level security;
+alter table public.planner_entries force row level security;
+alter table public.audit_log force row level security;
 
--- Drop similarly named policies first if you need to re-run this file.
-drop policy if exists "task_days_select_own" on public.task_days;
-drop policy if exists "task_days_insert_own" on public.task_days;
-drop policy if exists "task_days_update_own" on public.task_days;
-drop policy if exists "task_days_delete_own" on public.task_days;
-drop policy if exists "planner_entries_select_own" on public.planner_entries;
-drop policy if exists "planner_entries_insert_own" on public.planner_entries;
-drop policy if exists "planner_entries_update_own" on public.planner_entries;
-drop policy if exists "planner_entries_delete_own" on public.planner_entries;
-drop policy if exists "audit_log_select_own" on public.audit_log;
-drop policy if exists "audit_log_insert_own" on public.audit_log;
+-- Drop every existing policy on these tables so an older, wider policy
+-- cannot stay in place beside the ones below.
+do $$
+declare r record;
+begin
+  for r in
+    select policyname, tablename
+    from pg_policies
+    where schemaname = 'public'
+      and tablename in ('task_days', 'planner_entries', 'audit_log')
+  loop
+    execute format('drop policy if exists %I on public.%I', r.policyname, r.tablename);
+  end loop;
+end $$;
 
 create policy "task_days_select_own"
   on public.task_days for select to authenticated
@@ -51,17 +60,16 @@ create policy "planner_entries_delete_own"
   on public.planner_entries for delete to authenticated
   using (auth.uid() = user_id);
 
-create policy "audit_log_select_own"
-  on public.audit_log for select to authenticated
-  using (auth.uid() = user_id);
+-- audit_log is insert-only for the signed-in owner. No select, update, or delete policy.
 create policy "audit_log_insert_own"
   on public.audit_log for insert to authenticated
   with check (auth.uid() = user_id);
 
--- Optional: keep anonymous visitors from touching tables directly.
-revoke all on public.task_days, public.planner_entries, public.audit_log from anon;
+-- Replace grants so anon cannot touch the tables, and authenticated cannot
+-- update or delete the audit log.
+revoke all on public.task_days, public.planner_entries, public.audit_log from anon, authenticated;
 grant select, insert, update, delete on public.task_days, public.planner_entries to authenticated;
-grant select, insert on public.audit_log to authenticated;
+grant insert on public.audit_log to authenticated;
 
 -- Upsert in the app assumes one row per user per date.
 -- Skip these if the unique constraints already exist.
