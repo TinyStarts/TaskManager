@@ -1,8 +1,10 @@
-/* TinyStarts service worker: cache the app shell, always try the network first for the HTML so updates show, and never cache Supabase or other API calls. */
-const CACHE_NAME = 'tinystarts-v2-shell-1';
+/* TinyStarts service worker. Network first for the app shell so a new deploy shows up, cache only same-origin GET responses, and never touch Supabase or other APIs. */
+const CACHE_NAME = 'tinystarts-v2-shell-2';
 const SHELL = [
   './',
   './index.html',
+  './app.js',
+  './app.css',
   './manifest.webmanifest',
   './icon-192.png',
   './icon-512.png',
@@ -29,58 +31,25 @@ self.addEventListener('activate', function (event) {
   );
 });
 
-function isApiRequest(url) {
-  const host = url.hostname;
-  return host.endsWith('supabase.co') ||
-    host === 'api.github.com' ||
-    url.pathname.indexOf('/rest/v1') === 0 ||
-    url.pathname.indexOf('/auth/v1') === 0;
-}
-
-function isAppHtml(request, url) {
-  if (request.mode === 'navigate') return true;
-  const path = url.pathname;
-  if (path.endsWith('/') || path.endsWith('/index.html') || path.endsWith('index.html')) return true;
-  const accept = request.headers.get('accept') || '';
-  return accept.indexOf('text/html') !== -1;
-}
-
 self.addEventListener('fetch', function (event) {
   const request = event.request;
   if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
-  if (isApiRequest(url)) return;
+  if (url.origin !== self.location.origin) return;
+  if (url.pathname.endsWith('/sw.js')) return;
 
-  if (isAppHtml(request, url)) {
-    event.respondWith(
-      fetch(request).then(function (response) {
-        if (response && response.ok) {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then(function (cache) { cache.put(request, copy); });
-        }
-        return response;
-      }).catch(function () {
-        return caches.match(request).then(function (cached) {
-          return cached || caches.match('./index.html');
-        });
-      })
-    );
-    return;
-  }
-
-  if (url.origin === self.location.origin) {
-    event.respondWith(
-      caches.match(request).then(function (cached) {
-        if (cached) return cached;
-        return fetch(request).then(function (response) {
-          if (response && response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then(function (cache) { cache.put(request, copy); });
-          }
-          return response;
-        });
-      })
-    );
-  }
+  event.respondWith(
+    fetch(request).then(function (response) {
+      if (response && response.ok && response.type === 'basic') {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then(function (cache) { cache.put(request, copy); });
+      }
+      return response;
+    }).catch(function () {
+      return caches.match(request).then(function (cached) {
+        return cached || caches.match('./index.html');
+      });
+    })
+  );
 });
