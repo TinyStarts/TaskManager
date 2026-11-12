@@ -16,7 +16,64 @@
     'I’ve started before. I can start again.',
     'Done is better than perfect right now.',
     'My energy is information, not a verdict.',
-    'I can make this smaller until it feels possible.'
+    'I can make this smaller until it feels possible.',
+    'A slow start is still a start.',
+    'I can begin before I feel ready.',
+    'My brain is not a problem to solve.',
+    'Interest is a kind of fuel, and I can follow a spark.',
+    'I can do the next kind thing for future me.',
+    'Rest is part of the work, not a detour from it.',
+    'I don’t have to earn a break.',
+    'One finished tiny step is a real win.',
+    'I can ask for help without apologizing for needing it.',
+    'Forgetting is human. I can write it down and keep going.',
+    'I can change the plan without abandoning myself.',
+    'Today only needs a beginning.',
+    'I am allowed to do this in the order that works for me.',
+    'A messy attempt counts.',
+    'I can put the phone down for five minutes and be proud of that.',
+    'My worth is not measured by my inbox.',
+    'I can start again as many times as I need.',
+    'Gentle structure is a kindness, not a cage.',
+    'I can notice the urge to quit and still do one more small thing.',
+    'I don’t have to do it the hard way to make it count.',
+    'Body first, then the task. Water, stretch, then begin.',
+    'I can trust a timer more than a mood.',
+    'Showing up messy is still showing up.',
+    'I can leave a note for myself and call that progress.',
+    'The task can be smaller than my worry about it.',
+    'I am learning what helps, and that learning counts.',
+    'I can celebrate the start, not only the finish.',
+    'It’s okay if today is a maintenance day.',
+    'I can be on my own side while I figure this out.',
+    'A pause is not the same as quitting.',
+    'I can choose the easiest honest version of this.',
+    'My attention wandering doesn’t erase what I already did.',
+    'I can return to the tab, the page, the sentence.',
+    'I don’t owe anyone a perfect morning.',
+    'I can make the next step visible and then take it.',
+    'Boredom is information. I can make the next two minutes kinder.',
+    'I can keep promises to myself in tiny sizes.',
+    'I am allowed to outgrow a system and try a softer one.',
+    'Done for now is a complete sentence.',
+    'I can name one thing that went okay and let that be enough.',
+    'I don’t have to carry the whole week in this hour.',
+    'Starting late is still starting.',
+    'I can be proud of the effort nobody saw.',
+    'My pace is allowed to be uneven.',
+    'I can set the bar on the floor and step over it.',
+    'I can come back after a spiral. The door stays open.',
+    'I am more than the tasks I didn’t finish.',
+    'A five-minute try is a real try.',
+    'I can let “good enough” be the goal today.',
+    'I can write the first ugly sentence and keep it.',
+    'Support is a tool, not a verdict.',
+    'I can move my body and let my mind catch up.',
+    'I don’t have to feel motivated to take the first step.',
+    'Today’s version of me deserves a gentle start.',
+    'I can put one thing where I will see it tomorrow.',
+    'I am allowed to be both capable and tired.',
+    'Small care for myself makes the next task lighter.'
   ];
   const STUCK_HELPS = [
     'Shrink it to the very first 2-minute step and start a 5-minute timer.',
@@ -438,9 +495,8 @@
 
   function fillDayForm(data) {
     const day = data || {};
-    const aff = day.affirmation || DEFAULT_AFFIRMATION;
-    if ($('affirmation')) $('affirmation').value = aff;
-    if ($('affirmationDisplay')) $('affirmationDisplay').textContent = aff;
+    const aff = (day.affirmation && String(day.affirmation).trim()) || dailyAffirmation(activeKey());
+    showAffirmation(aff);
     document.querySelectorAll('#energyBtns button').forEach(function (btn) {
       const on = btn.dataset.level === day.energy;
       btn.classList.toggle('active', on);
@@ -472,6 +528,7 @@
     renderWinsThisWeek();
     renderWeeklySummary();
     renderHistory();
+    renderMyAffirmations();
     updateEditingBanner();
   }
 
@@ -798,7 +855,7 @@
     const data = currentDayDataFromDom();
     all[key] = data;
     saveJson('task-days', all);
-    if ($('affirmationDisplay')) $('affirmationDisplay').textContent = data.affirmation;
+    showAffirmation(data.affirmation);
     setSaveStatus('Saved');
     renderEnergyCalendar();
     renderWinsThisWeek();
@@ -955,16 +1012,197 @@
     showToast('Added to your schedule at ' + formatTimeLabel(slot.start), 'success');
   }
 
-  function setAffirmation(text) {
-    if (!text) {
-      let idx;
-      do { idx = Math.floor(Math.random() * AFFIRMATIONS.length); } while (idx === lastAff && AFFIRMATIONS.length > 1);
-      lastAff = idx;
-      text = AFFIRMATIONS[lastAff];
+  function hashString(value) {
+    let h = 2166136261;
+    const s = String(value || '');
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
     }
-    $('affirmation').value = text;
-    $('affirmationDisplay').textContent = text;
-    scheduleSave();
+    return h >>> 0;
+  }
+
+  function getAffirmationStore() {
+    const raw = loadJson('user-affirmations', {});
+    const items = Array.isArray(raw.items) ? raw.items.filter(function (item) {
+      return item && item.id && String(item.text || '').trim();
+    }) : [];
+    return { items: items, mixOwn: !!raw.mixOwn, savedAt: raw.savedAt || '' };
+  }
+
+  function visibleAffirmations(store) {
+    return (store && store.items ? store.items : []).filter(function (item) {
+      return item && !item.deletedAt && String(item.text || '').trim();
+    });
+  }
+
+  function affirmationPool() {
+    const pool = AFFIRMATIONS.slice();
+    const store = getAffirmationStore();
+    if (store.mixOwn) {
+      visibleAffirmations(store).forEach(function (item) {
+        const text = String(item.text).trim();
+        if (pool.indexOf(text) === -1) pool.push(text);
+      });
+    }
+    return pool.length ? pool : [DEFAULT_AFFIRMATION];
+  }
+
+  function dailyAffirmation(key) {
+    const pool = affirmationPool();
+    return pool[hashString('tinystarts|' + (key || todayKey())) % pool.length];
+  }
+
+  function showAffirmation(text) {
+    const value = String(text || '').trim() || dailyAffirmation(activeKey());
+    if ($('affirmation')) $('affirmation').value = value;
+    if ($('affirmationText')) $('affirmationText').textContent = value;
+    const btn = $('affirmationSaveBtn');
+    if (btn) {
+      const saved = visibleAffirmations(getAffirmationStore()).some(function (item) {
+        return item.text.trim().toLowerCase() === value.toLowerCase();
+      });
+      btn.setAttribute('aria-pressed', saved ? 'true' : 'false');
+      btn.textContent = saved ? '♥ Saved' : '♡ Save';
+    }
+  }
+
+  function shuffleAffirmation() {
+    const pool = affirmationPool();
+    const current = (($('affirmation') && $('affirmation').value) || '').trim();
+    let next = pool[Math.floor(Math.random() * pool.length)];
+    let guard = 0;
+    while (pool.length > 1 && next === current && guard < 12) {
+      next = pool[Math.floor(Math.random() * pool.length)];
+      guard++;
+    }
+    showAffirmation(next);
+    dayDirty = true;
+    saveDay();
+  }
+
+  function renderMyAffirmations() {
+    const list = $('myAffirmationList');
+    if (!list) return;
+    const store = getAffirmationStore();
+    if ($('affirmationMixToggle')) $('affirmationMixToggle').checked = !!store.mixOwn;
+    list.innerHTML = '';
+    const rows = visibleAffirmations(store);
+    if (!rows.length) {
+      const empty = document.createElement('li');
+      empty.className = 'hint';
+      empty.id = 'myAffirmationEmpty';
+      empty.textContent = 'Nothing saved yet. A hearted line or one you write will live here.';
+      list.appendChild(empty);
+      return;
+    }
+    rows.forEach(function (item, index) {
+      const li = document.createElement('li');
+      li.className = 'affirmation-item';
+      li.id = 'my-affirmation-' + (index + 1);
+      const p = document.createElement('p');
+      p.textContent = item.text;
+      const edit = document.createElement('button');
+      edit.type = 'button';
+      edit.className = 'icon-text';
+      edit.id = 'my-affirmation-edit-' + (index + 1);
+      edit.textContent = 'Edit';
+      edit.addEventListener('click', function () { beginEditAffirmation(item.id); });
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'icon-text';
+      del.id = 'my-affirmation-delete-' + (index + 1);
+      del.textContent = 'Delete';
+      del.addEventListener('click', function () { deleteMyAffirmation(item.id); });
+      li.appendChild(p);
+      li.appendChild(edit);
+      li.appendChild(del);
+      list.appendChild(li);
+    });
+  }
+
+  function persistAffirmationStore(store) {
+    store.savedAt = new Date().toISOString();
+    saveJson('user-affirmations', {
+      items: store.items,
+      mixOwn: !!store.mixOwn,
+      savedAt: store.savedAt
+    });
+    cloudUpsertAffirmations(store);
+    renderMyAffirmations();
+    showAffirmation(($('affirmation') && $('affirmation').value) || '');
+  }
+
+  function beginEditAffirmation(id) {
+    const store = getAffirmationStore();
+    const item = visibleAffirmations(store).filter(function (row) { return row.id === id; })[0];
+    const input = $('myAffirmationInput');
+    if (!item || !input) return;
+    input.value = item.text;
+    input.dataset.editingId = item.id;
+    if ($('myAffirmationAddBtn')) $('myAffirmationAddBtn').textContent = 'Update';
+    input.focus();
+  }
+
+  function addOrUpdateMyAffirmation() {
+    const input = $('myAffirmationInput');
+    const text = input ? input.value.trim() : '';
+    if (!text) { showToast('Write a sentence first', 'info'); return; }
+    if (text.length > 280) { showToast('Keep it to a sentence or two', 'info'); return; }
+    const store = getAffirmationStore();
+    const editing = input.dataset.editingId || '';
+    if (editing) {
+      store.items = store.items.map(function (item) {
+        if (item.id !== editing) return item;
+        return { id: item.id, text: text, savedAt: new Date().toISOString(), deletedAt: null };
+      });
+      input.dataset.editingId = '';
+      if ($('myAffirmationAddBtn')) $('myAffirmationAddBtn').textContent = 'Save mine';
+    } else {
+      const exists = visibleAffirmations(store).some(function (item) {
+        return item.text.trim().toLowerCase() === text.toLowerCase();
+      });
+      if (exists) { showToast('That’s already in your list', 'info'); return; }
+      store.items.push({ id: 'aff-' + Date.now().toString(36), text: text, savedAt: new Date().toISOString(), deletedAt: null });
+    }
+    input.value = '';
+    persistAffirmationStore(store);
+    showToast('Saved to your list', 'success');
+  }
+
+  function deleteMyAffirmation(id) {
+    const store = getAffirmationStore();
+    const item = store.items.filter(function (row) { return row.id === id && !row.deletedAt; })[0];
+    if (!item) return;
+    const previous = { id: item.id, text: item.text, savedAt: item.savedAt || '', deletedAt: null };
+    const stamp = new Date().toISOString();
+    store.items = store.items.map(function (row) {
+      if (row.id !== id) return row;
+      return { id: row.id, text: row.text, savedAt: stamp, deletedAt: stamp };
+    });
+    undoStack.push({ type: 'affirmation', previous: previous });
+    persistAffirmationStore(store);
+    showToast('Affirmation removed', 'info', 8000, true);
+  }
+
+  function heartCurrentAffirmation() {
+    const text = (($('affirmationText') && $('affirmationText').textContent) || '').trim();
+    if (!text) return;
+    const store = getAffirmationStore();
+    if (visibleAffirmations(store).some(function (item) { return item.text.trim().toLowerCase() === text.toLowerCase(); })) {
+      showToast('Already in your list', 'info');
+      showAffirmation(text);
+      return;
+    }
+    store.items.push({ id: 'aff-' + Date.now().toString(36), text: text, savedAt: new Date().toISOString(), deletedAt: null });
+    persistAffirmationStore(store);
+    showToast('Saved to your list', 'success');
+  }
+
+  function setMixOwn(on) {
+    const store = getAffirmationStore();
+    store.mixOwn = !!on;
+    persistAffirmationStore(store);
   }
 
   function suggestTop3() {
@@ -1259,6 +1497,19 @@
       saveJson('task-days', all);
       cloudUpsertDay(last.key, day);
       if (activeKey() === last.key) loadDay();
+    } else if (last.type === 'affirmation' && last.previous) {
+      const store = getAffirmationStore();
+      const stamp = new Date().toISOString();
+      let found = false;
+      store.items = store.items.map(function (row) {
+        if (row.id !== last.previous.id) return row;
+        found = true;
+        return { id: last.previous.id, text: last.previous.text, savedAt: stamp, deletedAt: null };
+      });
+      if (!found) {
+        store.items.push({ id: last.previous.id, text: last.previous.text, savedAt: stamp, deletedAt: null });
+      }
+      persistAffirmationStore(store);
     }
     scheduleSyncPush();
     showToast('Restored', 'success');
@@ -2438,7 +2689,8 @@
     'tinystarts-sync-gist-id',
     'tinystarts-sync-token',
     'tinystarts-sync-enabled',
-    'tinystarts-user-id'
+    'tinystarts-user-id',
+    'user-affirmations'
   ];
 
   function clearLocalPersonalData() {
@@ -2470,6 +2722,8 @@
       if (el) el.textContent = '';
     });
     if ($('weeklySummary')) $('weeklySummary').textContent = '';
+    if ($('myAffirmationList')) $('myAffirmationList').textContent = '';
+    if ($('myAffirmationInput')) { $('myAffirmationInput').value = ''; $('myAffirmationInput').dataset.editingId = ''; }
     if ($('userEmail')) $('userEmail').textContent = '';
     if ($('accountWho')) $('accountWho').textContent = 'Signed in';
     if ($('accountInitial')) $('accountInitial').textContent = '?';
@@ -2674,6 +2928,18 @@
         saveJson('planner-entries', local);
         saveJson('planner-updated', meta);
       }
+      const affRes = await sb.from('user_affirmations').select('data').eq('user_id', currentUser.id);
+      if (affRes.error) console.warn('Affirmation cloud load skipped:', affRes.error.message);
+      else if (affRes.data && affRes.data[0] && affRes.data[0].data) {
+        const remote = affRes.data[0].data;
+        const local = getAffirmationStore();
+        const chosen = recordTime(remote) >= recordTime(local) ? remote : local;
+        saveJson('user-affirmations', {
+          items: Array.isArray(chosen.items) ? chosen.items : [],
+          mixOwn: !!chosen.mixOwn,
+          savedAt: chosen.savedAt || ''
+        });
+      }
       await logAudit('load_data');
     } catch (err) {
       console.warn('Cloud load skipped:', err);
@@ -2699,6 +2965,19 @@
       const res = await sb.from('planner_entries').upsert(planRows);
       if (res.error) console.warn('Cloud planner push failed:', res.error.message);
     }
+    const aff = getAffirmationStore();
+    if (aff.savedAt) cloudUpsertAffirmations(aff);
+  }
+
+  function cloudUpsertAffirmations(store) {
+    if (!currentUser || !initSupabase()) return;
+    sb.from('user_affirmations').upsert({
+      user_id: currentUser.id,
+      data: { items: store.items || [], mixOwn: !!store.mixOwn, savedAt: store.savedAt || '' },
+      updated_at: new Date().toISOString()
+    }).then(function (res) {
+      if (res.error) console.warn('Cloud affirmation save failed:', res.error.message);
+    }).catch(function (err) { console.warn('Cloud affirmation save failed:', err); });
   }
 
   function isSafeImageSrc(src) {
@@ -2964,10 +3243,17 @@
       applyEnergySlots();
       scheduleSave();
     });
-    if ($('affirmationLine')) $('affirmationLine').addEventListener('click', function () { setAffirmation(); });
-    if ($('affirmation')) $('affirmation').addEventListener('input', function (ev) {
-      if ($('affirmationDisplay')) $('affirmationDisplay').textContent = ev.target.value || DEFAULT_AFFIRMATION;
-      scheduleSave();
+    if ($('affirmationShuffleBtn')) $('affirmationShuffleBtn').addEventListener('click', shuffleAffirmation);
+    if ($('affirmationSaveBtn')) $('affirmationSaveBtn').addEventListener('click', heartCurrentAffirmation);
+    if ($('myAffirmationAddBtn')) $('myAffirmationAddBtn').addEventListener('click', addOrUpdateMyAffirmation);
+    if ($('affirmationMixToggle')) $('affirmationMixToggle').addEventListener('change', function (ev) {
+      setMixOwn(ev.target.checked);
+    });
+    if ($('myAffirmationInput')) $('myAffirmationInput').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        addOrUpdateMyAffirmation();
+      }
     });
     if ($('meds-morning')) $('meds-morning').addEventListener('change', scheduleSave);
     if ($('meds-afternoon')) $('meds-afternoon').addEventListener('change', scheduleSave);
@@ -3166,7 +3452,7 @@
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js?v=5').catch(function (err) {
+    navigator.serviceWorker.register('sw.js?v=6').catch(function (err) {
       console.warn('Service worker not registered:', err);
     });
   });

@@ -92,3 +92,39 @@ begin
     end;
   end if;
 end $$;
+
+-- Personal affirmations: one JSON document per signed-in user.
+-- data.items keeps deleted rows as { id, text, savedAt, deletedAt } so a
+-- reload does not bring a deleted line back. data.mixOwn is the daily-pick toggle.
+-- Run this in the Supabase SQL editor after the policies above.
+
+create table if not exists public.user_affirmations (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  data jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.user_affirmations enable row level security;
+alter table public.user_affirmations force row level security;
+
+drop policy if exists "user_affirmations_select_own" on public.user_affirmations;
+drop policy if exists "user_affirmations_insert_own" on public.user_affirmations;
+drop policy if exists "user_affirmations_update_own" on public.user_affirmations;
+drop policy if exists "user_affirmations_delete_own" on public.user_affirmations;
+
+create policy "user_affirmations_select_own"
+  on public.user_affirmations for select to authenticated
+  using (auth.uid() = user_id);
+create policy "user_affirmations_insert_own"
+  on public.user_affirmations for insert to authenticated
+  with check (auth.uid() = user_id);
+create policy "user_affirmations_update_own"
+  on public.user_affirmations for update to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+create policy "user_affirmations_delete_own"
+  on public.user_affirmations for delete to authenticated
+  using (auth.uid() = user_id);
+
+revoke all on public.user_affirmations from anon, authenticated;
+grant select, insert, update, delete on public.user_affirmations to authenticated;

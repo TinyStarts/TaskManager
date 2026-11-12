@@ -102,10 +102,28 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
       <p class="saved-indicator" id="saveStatus" role="status" aria-live="polite"></p>
     </div>
 
-    <button type="button" class="affirmation-line" id="affirmationLine" title="Tap for a new affirmation" aria-label="Today's affirmation, tap to change">
-      <span id="affirmationDisplay"></span>
-    </button>
-    <input type="text" id="affirmation" name="affirmation" class="visually-hidden" tabindex="-1" aria-hidden="true">
+    <div class="card" id="affirmationCard">
+      <h3>Affirmation</h3>
+      <p class="hint">A gentle line for this day. It stays put until tomorrow, unless you want another.</p>
+      <p id="affirmationText"></p>
+      <input type="text" id="affirmation" name="affirmation" class="visually-hidden" tabindex="-1" aria-hidden="true">
+      <div class="btn-row">
+        <button type="button" class="btn secondary" id="affirmationShuffleBtn">Show another</button>
+        <button type="button" class="btn ghost" id="affirmationSaveBtn" aria-pressed="false" aria-label="Save this affirmation">Save</button>
+      </div>
+      <label class="check-field" for="affirmationMixToggle">
+        <input type="checkbox" id="affirmationMixToggle" name="affirmationMixToggle">
+        Also use my own affirmations for the daily pick
+      </label>
+      <h3 class="affirmation-sub">My affirmations</h3>
+      <p class="hint">Write one in your own words. You can edit or delete it later.</p>
+      <label class="field" for="myAffirmationInput">Your words</label>
+      <textarea id="myAffirmationInput" name="myAffirmationInput" maxlength="280" placeholder="A sentence you’d like to hear on a hard day…"></textarea>
+      <div class="btn-row">
+        <button type="button" class="btn" id="myAffirmationAddBtn">Save mine</button>
+      </div>
+      <ul id="myAffirmationList" class="affirmation-list"></ul>
+    </div>
 
     <div class="card compact" id="energyCard">
       <h3>How&#8217;s your energy?</h3>
