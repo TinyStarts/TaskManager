@@ -335,6 +335,7 @@
   function renderTop3(list) {
     const wrap = $('top3');
     if (!wrap) return;
+    if (dictationInput && dictationInput.id && dictationInput.id.indexOf('top3-text-') === 0) stopDictation();
     wrap.innerHTML = '';
     const placeholders = [
       'Next small action…',
@@ -382,6 +383,7 @@
       line.appendChild(cb);
       line.appendChild(lab);
       line.appendChild(input);
+      line.appendChild(makeMicButton('top3-mic-' + n, 'Dictate priority ' + n, input, 'replace'));
       const meta = document.createElement('div');
       meta.className = 'task-meta';
       const chips = document.createElement('div');
@@ -3429,8 +3431,184 @@
     });
   }
 
+  let dictation = null;
+  let dictationBtn = null;
+  let dictationInput = null;
+  let dictationMode = 'replace';
+  let dictationBase = '';
+  let dictationFinal = '';
+  let silenceTimer = null;
+
+  function dictationCtor() {
+    return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  }
+
+  function dictationSupported() {
+    return !!dictationCtor();
+  }
+
+  function micIcon() {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'ico');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    const head = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    head.setAttribute('d', 'M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Z');
+    head.setAttribute('fill', 'none');
+    head.setAttribute('stroke', 'currentColor');
+    head.setAttribute('stroke-width', '1.7');
+    const stem = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    stem.setAttribute('d', 'M19 11a7 7 0 0 1-14 0M12 18v3');
+    stem.setAttribute('fill', 'none');
+    stem.setAttribute('stroke', 'currentColor');
+    stem.setAttribute('stroke-width', '1.7');
+    stem.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(head);
+    svg.appendChild(stem);
+    return svg;
+  }
+
+  function setMicState(button, listening) {
+    if (!button) return;
+    button.dataset.state = listening ? 'listening' : 'idle';
+    button.setAttribute('aria-pressed', listening ? 'true' : 'false');
+    const idleLabel = button.dataset.idleLabel || 'Dictate';
+    button.setAttribute('aria-label', listening ? 'Stop dictation' : idleLabel);
+  }
+
+  function clearDictationUi() {
+    if (dictationBtn) setMicState(dictationBtn, false);
+    dictationBtn = null;
+    dictationInput = null;
+    clearTimeout(silenceTimer);
+    silenceTimer = null;
+  }
+
+  function stopDictation() {
+    clearTimeout(silenceTimer);
+    const rec = dictation;
+    dictation = null;
+    if (rec) {
+      rec.onresult = null;
+      rec.onerror = null;
+      rec.onend = null;
+      try { rec.stop(); } catch (err) {}
+    }
+    clearDictationUi();
+  }
+
+  function writeDictated(input, value) {
+    input.value = value;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function appendSpoken(base, addition) {
+    const extra = String(addition || '').replace(/\s+/g, ' ').trim();
+    if (!extra) return base || '';
+    if (!base) return extra;
+    if (/\s$/.test(base)) return base + extra;
+    return base + '\n' + extra;
+  }
+
+  function noteSilence() {
+    clearTimeout(silenceTimer);
+    silenceTimer = setTimeout(function () { stopDictation(); }, 2500);
+  }
+
+  function startDictation(input, button, mode) {
+    const Ctor = dictationCtor();
+    if (!Ctor || !input || !button) return;
+    stopDictation();
+    const rec = new Ctor();
+    dictation = rec;
+    dictationBtn = button;
+    dictationInput = input;
+    dictationMode = mode;
+    dictationBase = mode === 'append' ? (input.value || '') : '';
+    dictationFinal = '';
+    rec.lang = 'en-US';
+    rec.interimResults = true;
+    rec.continuous = mode === 'append';
+    rec.onresult = function (event) {
+      if (dictation !== rec) return;
+      noteSilence();
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const piece = event.results[i][0].transcript || '';
+        if (event.results[i].isFinal) dictationFinal += piece;
+        else interim += piece;
+      }
+      const spoken = (dictationFinal + ' ' + interim).replace(/\s+/g, ' ').trim();
+      const next = mode === 'append' ? appendSpoken(dictationBase, spoken) : spoken;
+      writeDictated(input, next);
+    };
+    rec.onerror = function (event) {
+      if (dictation !== rec) return;
+      const code = event && event.error;
+      if (code === 'aborted') return;
+      if (code === 'not-allowed' || code === 'service-not-allowed') {
+        showToast('The mic stayed off. You can type instead.', 'info', 5000);
+      } else {
+        showToast('Couldn’t hear that — want to try again?', 'info', 5000);
+      }
+    };
+    rec.onend = function () {
+      if (dictation !== rec) return;
+      stopDictation();
+    };
+    setMicState(button, true);
+    noteSilence();
+    try { rec.start(); }
+    catch (err) {
+      stopDictation();
+      showToast('Couldn’t hear that — want to try again?', 'info', 5000);
+    }
+  }
+
+  function toggleDictation(input, button, mode) {
+    if (!dictationSupported()) return;
+    if (dictationBtn === button && button.dataset.state === 'listening') {
+      stopDictation();
+      return;
+    }
+    startDictation(input, button, mode);
+  }
+
+  function makeMicButton(id, label, input, mode) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = id;
+    btn.className = 'icon-btn mic-btn';
+    btn.dataset.state = 'idle';
+    btn.dataset.idleLabel = label;
+    btn.setAttribute('aria-pressed', 'false');
+    btn.setAttribute('aria-label', label);
+    btn.hidden = !dictationSupported();
+    btn.appendChild(micIcon());
+    btn.addEventListener('click', function () { toggleDictation(input, btn, mode); });
+    return btn;
+  }
+
+  function initDictation() {
+    const supported = dictationSupported();
+    ['brainDumpMic', 'myAffirmationMic'].forEach(function (id) {
+      const btn = $(id);
+      if (!btn) return;
+      btn.hidden = !supported;
+      if (!supported || btn.dataset.bound) return;
+      btn.dataset.bound = '1';
+      if (!btn.querySelector('svg')) btn.appendChild(micIcon());
+      const fieldId = id === 'brainDumpMic' ? 'brainDump' : 'myAffirmationInput';
+      const mode = id === 'brainDumpMic' ? 'append' : 'replace';
+      btn.dataset.idleLabel = btn.getAttribute('aria-label') || 'Dictate';
+      btn.addEventListener('click', function () { toggleDictation($(fieldId), btn, mode); });
+    });
+  }
+
   function start() {
     initTheme();
+    initDictation();
     document.body.dataset.view = 'today';
     document.documentElement.dataset.gate = 'checking';
     if ($('authForm')) $('authForm').addEventListener('submit', function (e) {
@@ -3452,7 +3630,7 @@
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js?v=6').catch(function (err) {
+    navigator.serviceWorker.register('sw.js?v=10').catch(function (err) {
       console.warn('Service worker not registered:', err);
     });
   });

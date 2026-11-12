@@ -118,7 +118,10 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
       <h3 class="affirmation-sub">My affirmations</h3>
       <p class="hint">Write one in your own words. You can edit or delete it later.</p>
       <label class="field" for="myAffirmationInput">Your words</label>
-      <textarea id="myAffirmationInput" name="myAffirmationInput" maxlength="280" placeholder="A sentence you’d like to hear on a hard day…"></textarea>
+      <div class="field-with-mic">
+        <textarea id="myAffirmationInput" name="myAffirmationInput" maxlength="280" placeholder="A sentence you’d like to hear on a hard day…"></textarea>
+        <button type="button" class="icon-btn mic-btn" id="myAffirmationMic" data-state="idle" aria-pressed="false" aria-label="Dictate your affirmation" hidden></button>
+      </div>
       <div class="btn-row">
         <button type="button" class="btn" id="myAffirmationAddBtn">Save mine</button>
       </div>
@@ -153,7 +156,10 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
     <div class="card compact" id="brainDumpCard">
       <h3>Quick brain dump</h3>
       <p class="hint">Optional. Get it out of your head before you pick today&#8217;s actions.</p>
-      <textarea id="brainDump" name="brainDump" placeholder="Dump everything on your mind&#8230;"></textarea>
+      <div class="field-with-mic">
+        <textarea id="brainDump" name="brainDump" placeholder="Dump everything on your mind&#8230;"></textarea>
+        <button type="button" class="icon-btn mic-btn" id="brainDumpMic" data-state="idle" aria-pressed="false" aria-label="Dictate brain dump" hidden></button>
+      </div>
       <ul id="brainDumpLines" class="brain-lines"></ul>
       <div class="btn-row">
         <button type="button" class="btn secondary" id="suggestTop3Btn">Suggest from this</button>
