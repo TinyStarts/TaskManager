@@ -3429,8 +3429,165 @@
     });
   }
 
+  let speechGen = 0;
+  let speechVoice = null;
+
+  function speechAvailable() {
+    return typeof window.speechSynthesis !== 'undefined' && typeof window.SpeechSynthesisUtterance !== 'undefined';
+  }
+
+  function joinSpoken(items) {
+    if (!items.length) return '';
+    if (items.length === 1) return items[0];
+    if (items.length === 2) return items[0] + ' and ' + items[1];
+    return items.slice(0, -1).join(', ') + ', and ' + items[items.length - 1];
+  }
+
+  function checkboxSpokenName(input, fallback) {
+    const label = input && input.closest ? input.closest('label') : null;
+    const text = label ? String(label.textContent || '').replace(/\s+/g, ' ').trim() : '';
+    return text || fallback;
+  }
+
+  function chooseSpeechVoice() {
+    if (!speechAvailable()) return null;
+    const voices = window.speechSynthesis.getVoices() || [];
+    let best = null;
+    let bestScore = -1;
+    voices.forEach(function (voice) {
+      const lang = String(voice.lang || '').toLowerCase();
+      const name = String(voice.name || '').toLowerCase();
+      let score = 0;
+      if (lang.indexOf('en') === 0) score += 4;
+      if (voice.localService) score += 3;
+      if (name.indexOf('english') !== -1) score += 1;
+      if (score > bestScore) { best = voice; bestScore = score; }
+    });
+    speechVoice = best;
+    return best;
+  }
+
+  function setReadAloudState(state) {
+    const btn = $('readAloudBtn');
+    if (!btn) return;
+    btn.dataset.state = state === 'speaking' ? 'speaking' : 'idle';
+    btn.textContent = state === 'speaking' ? 'Stop' : 'Read aloud';
+    btn.setAttribute('aria-pressed', state === 'speaking' ? 'true' : 'false');
+  }
+
+  function stopSpeech() {
+    speechGen++;
+    if (speechAvailable()) {
+      try { window.speechSynthesis.cancel(); } catch (err) {}
+    }
+    setReadAloudState('idle');
+  }
+
+  function speak(text) {
+    if (!speechAvailable()) return;
+    const message = String(text || '').trim();
+    if (!message) return;
+    const gen = ++speechGen;
+    try { window.speechSynthesis.cancel(); } catch (err) {}
+    const utterance = new window.SpeechSynthesisUtterance(message);
+    utterance.rate = 0.95;
+    utterance.pitch = 1;
+    const voice = speechVoice || chooseSpeechVoice();
+    if (voice) utterance.voice = voice;
+    if (voice && voice.lang) utterance.lang = voice.lang;
+    else utterance.lang = 'en-US';
+    function finish() {
+      if (gen !== speechGen) return;
+      setReadAloudState('idle');
+    }
+    utterance.onend = finish;
+    utterance.onerror = finish;
+    setReadAloudState('speaking');
+    try { window.speechSynthesis.speak(utterance); }
+    catch (err) { setReadAloudState('idle'); }
+  }
+
+  function medsToSpeak() {
+    const items = [];
+    let total = 0;
+    const morning = $('meds-morning');
+    const afternoon = $('meds-afternoon');
+    if (morning) {
+      total++;
+      if (!morning.checked) items.push(checkboxSpokenName(morning, 'morning dose'));
+    }
+    if (afternoon) {
+      total++;
+      if (!afternoon.checked) items.push(checkboxSpokenName(afternoon, 'afternoon dose'));
+    }
+    const card = $('medsCard');
+    if (card) {
+      card.querySelectorAll('input[type="checkbox"][id^="med-"]').forEach(function (input) {
+        total++;
+        if (!input.checked) items.push(checkboxSpokenName(input, input.id.replace(/^med-/, '').replace(/-/g, ' ')));
+      });
+    }
+    return { total: total, unchecked: items };
+  }
+
+  function readAloudScript() {
+    const lines = [];
+    const affirmation = (($('affirmationText') && $('affirmationText').textContent) || '').trim();
+    const tasks = [];
+    [1, 2, 3].forEach(function (n) {
+      const el = $('top3-text-' + n);
+      const text = el ? String(el.value || '').trim() : '';
+      if (text) tasks.push(text);
+    });
+    const todayish = activeKey() === todayKey();
+    if (affirmation) {
+      lines.push((todayish ? 'Today’s affirmation. ' : 'The affirmation for this day. ') + affirmation);
+    }
+    if (tasks.length) {
+      const words = ['One', 'Two', 'Three'];
+      const numbered = tasks.map(function (text, i) { return words[i] + ': ' + text; });
+      lines.push((todayish ? 'Your top 3 today. ' : 'Your top 3 for this day. ') + numbered.join('. ') + '.');
+    } else {
+      lines.push('Nothing planned yet. Want to pick one small thing?');
+    }
+    const meds = medsToSpeak();
+    if (meds.total) {
+      if (!meds.unchecked.length) lines.push('Meds are all done. Nice.');
+      else lines.push('Still to take: ' + joinSpoken(meds.unchecked) + '.');
+    }
+    if (!lines.length) lines.push('Nothing planned yet. Want to pick one small thing?');
+    return lines.join(' ');
+  }
+
+  function initReadAloud() {
+    const mainBtn = $('readAloudBtn');
+    const affBtn = $('affirmationSpeakBtn');
+    if (!speechAvailable()) {
+      if (mainBtn) mainBtn.hidden = true;
+      if (affBtn) affBtn.hidden = true;
+      return;
+    }
+    if (mainBtn) mainBtn.hidden = false;
+    if (affBtn) affBtn.hidden = false;
+    chooseSpeechVoice();
+    if (window.speechSynthesis.addEventListener) {
+      window.speechSynthesis.addEventListener('voiceschanged', chooseSpeechVoice);
+    } else {
+      window.speechSynthesis.onvoiceschanged = chooseSpeechVoice;
+    }
+    if (mainBtn) mainBtn.addEventListener('click', function () {
+      if (mainBtn.dataset.state === 'speaking') stopSpeech();
+      else speak(readAloudScript());
+    });
+    if (affBtn) affBtn.addEventListener('click', function () {
+      const text = (($('affirmationText') && $('affirmationText').textContent) || '').trim();
+      speak(text ? text : 'No affirmation to read yet.');
+    });
+  }
+
   function start() {
     initTheme();
+    initReadAloud();
     document.body.dataset.view = 'today';
     document.documentElement.dataset.gate = 'checking';
     if ($('authForm')) $('authForm').addEventListener('submit', function (e) {
@@ -3452,7 +3609,7 @@
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js?v=6').catch(function (err) {
+    navigator.serviceWorker.register('sw.js?v=8').catch(function (err) {
       console.warn('Service worker not registered:', err);
     });
   });
