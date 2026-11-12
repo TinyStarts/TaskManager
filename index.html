@@ -261,7 +261,7 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
 <div id="settingsModal" class="modal" role="dialog" aria-labelledby="settingsTitle" aria-modal="true">
   <div class="modal-box">
     <h2 id="settingsTitle">Settings</h2>
-    <p class="hint" id="accountStatus">Sign in with the same email and password on your phone and on the Life Admin computer so both stay in sync.</p>
+    <p class="hint" id="accountStatus">Sign in with the same username and password on your phone and on the Life Admin computer so both stay in sync.</p>
     <div class="btn-row" id="authButtons"></div>
     <div id="securityPanel"></div>
 
@@ -314,10 +314,10 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
       </div>
     </div>
     <h2 id="authTitle">Sign in</h2>
-    <p class="hint" id="authHint">Use the same email and password on your phone and on the Life Admin computer.</p>
+    <p class="hint" id="authHint">Use the same username and password on your phone and on the Life Admin computer.</p>
     <form id="authForm">
-      <label class="field" for="authEmail">Email</label>
-      <input type="email" id="authEmail" name="authEmail" autocomplete="username" required>
+      <label class="field" for="authEmail">Username</label>
+      <input type="text" id="authEmail" name="authEmail" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Username" aria-label="Username" data-label="Username" required>
       <label class="field" for="authPassword">Password</label>
       <input type="password" id="authPassword" name="authPassword" autocomplete="current-password" required>
       <label class="field" for="authTotp" id="authTotpLabel" hidden>Authenticator code</label>

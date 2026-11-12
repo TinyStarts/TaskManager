@@ -53,6 +53,7 @@
     { startHour: 21, text: 'Bedtime supplements.' }
   ];
 
+  const AUTH_EMAIL_DOMAIN = 'users.tinystarts.app';
   const SUPABASE_URL = 'https://wqbssirqnbbeftgskktb.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxYnNzaXJxbmJiZWZ0Z3Nra3RiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyNzcxODQsImV4cCI6MjEwNzg1MzE4NH0.XsHIZ5kZTSv10UGZwEy-4Urv-GTUyb23-BOeRYi1u8Q';
 
@@ -1961,11 +1962,11 @@
   function friendlyAuthError(error) {
     const msg = String((error && (error.message || error.error_description)) || '');
     const lower = msg.toLowerCase();
-    if (lower.indexOf('invalid login') !== -1 || lower.indexOf('invalid credentials') !== -1 || lower.indexOf('email or password') !== -1) {
-      return 'That email or password doesn’t match. Please try again.';
+    if (lower.indexOf('invalid login') !== -1 || lower.indexOf('invalid credentials') !== -1 || lower.indexOf('email or password') !== -1 || lower.indexOf('username or password') !== -1) {
+      return 'That username or password doesn’t match. Please try again.';
     }
-    if (lower.indexOf('email not confirmed') !== -1) {
-      return 'Confirm your email, then sign in.';
+    if (lower.indexOf('email not confirmed') !== -1 || lower.indexOf('not confirmed') !== -1) {
+      return 'This account isn’t confirmed yet. Try again after it’s confirmed.';
     }
     if (lower.indexOf('mfa') !== -1 || lower.indexOf('factor') !== -1 || lower.indexOf('challenge') !== -1) {
       return 'That authenticator code didn’t work. Try the current code.';
@@ -1973,7 +1974,21 @@
     if (!msg || lower.indexOf('fetch') !== -1 || lower.indexOf('network') !== -1) {
       return 'Can’t reach sign-in right now. Check your connection and try again.';
     }
+    if (lower.indexOf('@') !== -1 || lower.indexOf(AUTH_EMAIL_DOMAIN) !== -1) {
+      return 'That username or password doesn’t match. Please try again.';
+    }
     return 'Couldn’t sign in. Please try again.';
+  }
+
+  function loginEmailFromUsername(raw) {
+    const value = String(raw || '').trim();
+    if (!value) return { error: 'Enter your username and password.' };
+    if (value.indexOf('@') !== -1) return { email: value };
+    const username = value.toLowerCase();
+    if (!/^[a-z0-9._-]{3,32}$/.test(username)) {
+      return { error: 'Usernames are 3–32 characters: letters, numbers, dots, underscores, and hyphens.' };
+    }
+    return { email: username + '@' + AUTH_EMAIL_DOMAIN };
   }
 
   function showLogin() {
@@ -2121,16 +2136,20 @@
       setAuthStatus('Can’t reach sign-in right now. Check your connection and try again.', true);
       return;
     }
-    const email = ($('authEmail').value || '').trim();
     const password = $('authPassword').value;
-    if (!email || !password) {
-      setAuthStatus('Enter your email and password.', true);
+    const login = loginEmailFromUsername($('authEmail') && $('authEmail').value);
+    if (!password || (login && login.error === 'Enter your username and password.')) {
+      setAuthStatus('Enter your username and password.', true);
+      return;
+    }
+    if (login.error) {
+      setAuthStatus(login.error, true);
       return;
     }
     setAuthBusy(true);
     setAuthStatus('Signing in…');
     try {
-      const result = await sb.auth.signInWithPassword({ email: email, password: password });
+      const result = await sb.auth.signInWithPassword({ email: login.email, password: password });
       if (result.error) {
         setAuthBusy(false);
         setAuthStatus(friendlyAuthError(result.error), true);
@@ -2701,7 +2720,7 @@
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js?v=2').catch(function (err) {
+    navigator.serviceWorker.register('sw.js?v=3').catch(function (err) {
       console.warn('Service worker not registered:', err);
     });
   });
