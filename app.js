@@ -53,6 +53,7 @@
     { startHour: 21, text: 'Bedtime supplements.' }
   ];
 
+  const AUTH_EMAIL_DOMAIN = 'users.tinystarts.app';
   const SUPABASE_URL = 'https://wqbssirqnbbeftgskktb.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxYnNzaXJxbmJiZWZ0Z3Nra3RiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyNzcxODQsImV4cCI6MjEwNzg1MzE4NH0.XsHIZ5kZTSv10UGZwEy-4Urv-GTUyb23-BOeRYi1u8Q';
 
@@ -62,6 +63,8 @@
   let authBusy = false;
   let appReady = false;
   let editingKey = null;
+  let pickerMonth = new Date();
+  let dayDirty = false;
   let plannerDate = new Date();
   let plannerView = 'week';
   let editingPlanner = null;
@@ -78,6 +81,39 @@
   function activeKey() { return editingKey || todayKey(); }
   function dateKey(d) {
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function parseDateKey(key) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(key || '')) return null;
+    const d = new Date(key + 'T12:00:00');
+    return isNaN(d.getTime()) ? null : d;
+  }
+  function readDateParam() {
+    try {
+      const value = new URLSearchParams(location.search).get('date');
+      return parseDateKey(value) ? value : null;
+    } catch (err) { return null; }
+  }
+  function writeDateParam(key, push) {
+    const url = new URL(location.href);
+    if (!key || key === todayKey()) url.searchParams.delete('date');
+    else url.searchParams.set('date', key);
+    const next = url.pathname + url.search + url.hash;
+    const current = location.pathname + location.search + location.hash;
+    if (next === current) return;
+    if (push) history.pushState({ date: key || '' }, '', next);
+    else history.replaceState({ date: key || '' }, '', next);
+  }
+  function isDeletedRecord(data) {
+    return !!(data && data.deleted === true);
+  }
+  function recordTime(data) {
+    if (!data) return 0;
+    return Date.parse(data.deletedAt || data.savedAt || 0) || 0;
+  }
+  function mergeDayRecord(local, remote) {
+    if (!local) return remote || null;
+    if (!remote) return local;
+    return recordTime(remote) >= recordTime(local) ? remote : local;
   }
 
   function safeGet(key, fallback) {
@@ -323,8 +359,16 @@
       park.className = 'not-today';
       park.textContent = 'Not today';
       park.addEventListener('click', function () { notToday(i); });
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.id = 'top3-delete-' + n;
+      remove.className = 'icon-text';
+      remove.textContent = 'Delete';
+      remove.setAttribute('aria-label', 'Delete priority ' + n);
+      remove.addEventListener('click', function () { deleteTop3(i); });
       tools.appendChild(cal);
       tools.appendChild(park);
+      tools.appendChild(remove);
       meta.appendChild(chips);
       meta.appendChild(tools);
       main.appendChild(line);
@@ -405,6 +449,7 @@
     renderTop3(day.top3);
     renderMicro(day.micro);
     if ($('brainDump')) $('brainDump').value = day.brainDump || '';
+    renderBrainLines();
     if ($('gotDone')) $('gotDone').value = day.gotDone || '';
     if ($('carryOver')) $('carryOver').value = day.carryOver || '';
     if ($('tomorrow1')) $('tomorrow1').value = day.tomorrow1 || '';
@@ -418,9 +463,11 @@
     const key = activeKey();
     const all = getDayMap();
     const data = all[key] || {};
-    fillDayForm(data);
+    fillDayForm(isDeletedRecord(data) ? {} : data);
+    dayDirty = false;
     checkCarryOver();
     updateTodayHeading();
+    renderDayEvents();
     renderEnergyCalendar();
     renderWinsThisWeek();
     renderWeeklySummary();
@@ -437,7 +484,11 @@
     if (!el) return;
     const key = activeKey();
     const date = new Date(key + 'T12:00:00');
-    el.textContent = date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+    el.textContent = date.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+    const title = $('top3Title');
+    if (title) title.textContent = key === todayKey() ? 'Today’s Top 3' : 'Top 3';
+    const jump = $('jumpTodayBtn');
+    if (jump) jump.hidden = key === todayKey();
     updateTodayTagline();
   }
 
@@ -462,20 +513,286 @@
     if (!banner) return;
     if (editingKey && editingKey !== todayKey()) {
       banner.style.display = 'block';
-      $('editingLabel').textContent = 'You’re looking at ' + new Date(editingKey + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }) + '. Changes save to that day.';
+      const label = new Date(editingKey + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+      $('editingLabel').textContent = 'Viewing ' + label + '.';
     } else {
       banner.style.display = 'none';
     }
   }
 
   function scheduleSave() {
+    dayDirty = true;
     setSaveStatus('Saving…');
     clearTimeout(saveTimer);
     saveTimer = setTimeout(saveDay, 500);
   }
 
+  function flushSave() {
+    if (!dayDirty) return;
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    saveDay();
+  }
+
+  function dayHasContent(data) {
+    if (!data || isDeletedRecord(data)) return false;
+    if (data.energy) return true;
+    if (String(data.brainDump || '').trim()) return true;
+    if (String(data.gotDone || '').trim() || String(data.carryOver || '').trim() || String(data.tomorrow1 || '').trim()) return true;
+    if (normalizeTop3(data.top3).some(function (t) { return t.text && String(t.text).trim(); })) return true;
+    if (Array.isArray(data.micro) && data.micro.some(function (m) { return m && String(m.text || '').trim(); })) return true;
+    if (data.meds && (data.meds.morning || data.meds.afternoon)) return true;
+    return false;
+  }
+
+  function dateHasDot(key) {
+    return dayHasContent(getDayMap()[key]) || loadPlannerItems(key).length > 0;
+  }
+
+  function closeDayChrome() {
+    const picker = $('dayPicker');
+    const menu = $('dayMenu');
+    if (picker) picker.hidden = true;
+    if (menu) menu.hidden = true;
+    const opener = $('openDayPickerBtn');
+    const menuBtn = $('dayMenuBtn');
+    if (opener) opener.setAttribute('aria-expanded', 'false');
+    if (menuBtn) menuBtn.setAttribute('aria-expanded', 'false');
+  }
+
+  function openDay(key, push) {
+    const parsed = parseDateKey(key);
+    if (!parsed) return;
+    flushSave();
+    const next = dateKey(parsed);
+    editingKey = next === todayKey() ? null : next;
+    plannerDate = new Date(parsed.getTime());
+    pickerMonth = new Date(parsed.getFullYear(), parsed.getMonth(), 1);
+    writeDateParam(next, !!push);
+    closeDayChrome();
+    loadDay();
+    renderPlanner();
+  }
+
+  function renderBrainLines() {
+    const list = $('brainDumpLines');
+    const box = $('brainDump');
+    if (!list || !box) return;
+    list.innerHTML = '';
+    const lines = String(box.value || '').split('\n');
+    lines.forEach(function (line, index) {
+      if (!line.trim()) return;
+      const li = document.createElement('li');
+      li.className = 'brain-line';
+      li.id = 'brain-line-' + (index + 1);
+      const span = document.createElement('span');
+      span.textContent = line.trim();
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'icon-text';
+      btn.id = 'brain-line-delete-' + (index + 1);
+      btn.textContent = 'Delete';
+      btn.setAttribute('aria-label', 'Delete brain dump line ' + (index + 1));
+      btn.addEventListener('click', function () { deleteBrainLine(index); });
+      li.appendChild(span);
+      li.appendChild(btn);
+      list.appendChild(li);
+    });
+  }
+
+  function deleteBrainLine(index) {
+    const box = $('brainDump');
+    if (!box) return;
+    const previous = box.value;
+    const lines = previous.split('\n');
+    if (!lines[index] || !lines[index].trim()) return;
+    lines.splice(index, 1);
+    box.value = lines.join('\n');
+    undoStack.push({ type: 'brain', key: activeKey(), previous: previous });
+    renderBrainLines();
+    dayDirty = true;
+    saveDay();
+    showToast('Line removed', 'info', 8000, true);
+  }
+
+  function deleteTop3(index) {
+    const data = currentDayDataFromDom();
+    const previous = data.top3.map(function (item) {
+      return { text: item.text, done: item.done, estimate: item.estimate || '' };
+    });
+    if (!previous[index] || !String(previous[index].text || '').trim()) return;
+    const next = previous.filter(function (_, i) { return i !== index; });
+    undoStack.push({ type: 'top3', key: activeKey(), previous: previous });
+    renderTop3(next);
+    dayDirty = true;
+    saveDay();
+    showToast('Task removed', 'info', 8000, true);
+  }
+
+  function renderDayEvents() {
+    const wrap = $('dayEvents');
+    if (!wrap) return;
+    const key = activeKey();
+    const items = loadPlannerItems(key);
+    wrap.innerHTML = '';
+    const hint = $('dayEventsHint');
+    if (hint) hint.textContent = items.length ? 'Events saved on this date.' : 'Nothing scheduled this day.';
+    items.forEach(function (item, index) {
+      const row = document.createElement('div');
+      row.className = 'day-event';
+      row.id = 'day-event-' + (index + 1);
+      const open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'event-open';
+      open.id = 'day-event-open-' + (index + 1);
+      const when = document.createElement('span');
+      when.className = 'when';
+      when.textContent = item.allDay ? 'All day' : (formatTimeLabel(eventStart(item)) + ' – ' + formatTimeLabel(eventEnd(item)));
+      const title = document.createElement('span');
+      title.textContent = item.text || 'Event';
+      open.appendChild(when);
+      open.appendChild(title);
+      open.addEventListener('click', function () { openEditItem(key, index); });
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'icon-text';
+      del.id = 'day-event-delete-' + (index + 1);
+      del.textContent = 'Delete';
+      del.setAttribute('aria-label', 'Delete event ' + (index + 1));
+      del.addEventListener('click', function () { deletePlannerItem(key, index); });
+      row.appendChild(open);
+      row.appendChild(del);
+      wrap.appendChild(row);
+    });
+  }
+
+  function clearDay(key, message) {
+    if (!parseDateKey(key)) return;
+    if (!confirm(message || 'Clear this day? Tasks, notes, and events on this date will be removed. You can undo for a few seconds.')) return;
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    dayDirty = false;
+    const all = getDayMap();
+    const previousDay = all[key] ? JSON.parse(JSON.stringify(all[key])) : null;
+    const previousPlans = loadPlannerItems(key).map(function (item) { return JSON.parse(JSON.stringify(item)); });
+    const stamp = new Date().toISOString();
+    const tomb = { deleted: true, deletedAt: stamp, savedAt: stamp };
+    all[key] = tomb;
+    saveJson('task-days', all);
+    cloudUpsertDay(key, tomb);
+    const plans = getPlannerMap();
+    plans[key] = [{ _meta: true, savedAt: stamp, deleted: true }];
+    saveJson('planner-entries', plans);
+    const meta = loadJson('planner-updated', {});
+    meta[key] = stamp;
+    saveJson('planner-updated', meta);
+    cloudUpsertPlanner(key, plans[key]);
+    undoStack.push({ type: 'clear', key: key, day: previousDay, plans: previousPlans });
+    if (activeKey() === key) loadDay();
+    renderPlanner();
+    renderHistory();
+    renderEnergyCalendar();
+    renderWeeklySummary();
+    closeDayChrome();
+    showToast('Day cleared', 'info', 8000, true);
+  }
+
+  function renderDayPicker() {
+    const root = $('dayPicker');
+    if (!root) return;
+    root.innerHTML = '';
+    const year = pickerMonth.getFullYear();
+    const month = pickerMonth.getMonth();
+    const head = document.createElement('div');
+    head.className = 'mini-cal-head';
+    const prev = document.createElement('button');
+    prev.type = 'button';
+    prev.className = 'icon-btn';
+    prev.id = 'dayPickerPrev';
+    prev.setAttribute('aria-label', 'Previous month');
+    prev.textContent = '‹';
+    prev.addEventListener('click', function () {
+      pickerMonth = new Date(year, month - 1, 1);
+      renderDayPicker();
+    });
+    const title = document.createElement('strong');
+    title.id = 'dayPickerLabel';
+    title.textContent = pickerMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    const next = document.createElement('button');
+    next.type = 'button';
+    next.className = 'icon-btn';
+    next.id = 'dayPickerNext';
+    next.setAttribute('aria-label', 'Next month');
+    next.textContent = '›';
+    next.addEventListener('click', function () {
+      pickerMonth = new Date(year, month + 1, 1);
+      renderDayPicker();
+    });
+    head.appendChild(prev);
+    head.appendChild(title);
+    head.appendChild(next);
+    root.appendChild(head);
+    const grid = document.createElement('div');
+    grid.className = 'mini-grid';
+    grid.id = 'dayPickerGrid';
+    ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach(function (d) {
+      const el = document.createElement('div');
+      el.className = 'mini-dow';
+      el.textContent = d;
+      grid.appendChild(el);
+    });
+    const first = new Date(year, month, 1);
+    const start = new Date(first);
+    start.setDate(1 - first.getDay());
+    const selected = activeKey();
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const key = dateKey(d);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'mini-day'
+        + (d.getMonth() !== month ? ' muted' : '')
+        + (key === todayKey() ? ' today' : '')
+        + (key === selected ? ' selected' : '')
+        + (dateHasDot(key) ? ' has-events' : '');
+      btn.id = 'day-pick-' + key;
+      btn.textContent = String(d.getDate());
+      btn.setAttribute('aria-label', d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }));
+      btn.addEventListener('click', function () { openDay(key, true); });
+      grid.appendChild(btn);
+    }
+    root.appendChild(grid);
+  }
+
+  function toggleDayPicker() {
+    const picker = $('dayPicker');
+    if (!picker) return;
+    const open = picker.hidden;
+    closeDayChrome();
+    if (open) {
+      const current = parseDateKey(activeKey()) || new Date();
+      pickerMonth = new Date(current.getFullYear(), current.getMonth(), 1);
+      picker.hidden = false;
+      if ($('openDayPickerBtn')) $('openDayPickerBtn').setAttribute('aria-expanded', 'true');
+      renderDayPicker();
+    }
+  }
+
+  function toggleDayMenu() {
+    const menu = $('dayMenu');
+    if (!menu) return;
+    const open = menu.hidden;
+    closeDayChrome();
+    if (open) {
+      menu.hidden = false;
+      if ($('dayMenuBtn')) $('dayMenuBtn').setAttribute('aria-expanded', 'true');
+    }
+  }
+
   function saveDay() {
     if (!currentUser) return;
+    dayDirty = false;
     const all = getDayMap();
     const key = activeKey();
     const data = currentDayDataFromDom();
@@ -825,7 +1142,9 @@
     if (!hist) return;
     const all = getDayMap();
     const q = (($('historySearch') || {}).value || '').toLowerCase();
-    let keys = Object.keys(all).sort().reverse();
+    let keys = Object.keys(all).filter(function (k) {
+      return /^\d{4}-\d{2}-\d{2}$/.test(k) && !isDeletedRecord(all[k]) && (dayHasContent(all[k]) || loadPlannerItems(k).length);
+    }).sort().reverse();
     if (q) {
       keys = keys.filter(function (k) {
         try { return k.toLowerCase().includes(q) || JSON.stringify(all[k]).toLowerCase().includes(q); }
@@ -846,7 +1165,9 @@
       const d = all[k] || {};
       const filled = normalizeTop3(d.top3).filter(function (t) { return t.text; });
       const done = filled.filter(function (t) { return t.done; }).length;
-      const label = new Date(k + 'T12:00:00').toLocaleDateString();
+      const label = new Date(k + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+      const dump = String(d.brainDump || '').split('\n').map(function (line) { return line.trim(); }).filter(Boolean)[0] || '';
+      const summary = [done + '/' + filled.length + ' done', d.energy || '', dump ? dump.slice(0, 42) : ''].filter(Boolean).join(' · ');
       const row = document.createElement('div');
       row.className = 'history-item';
       row.id = 'history-row-' + k;
@@ -854,7 +1175,7 @@
       openBtn.type = 'button';
       openBtn.className = 'linkish';
       openBtn.id = 'history-open-' + k;
-      openBtn.textContent = label + ' · ' + done + '/' + filled.length + ' done · ' + (d.energy || '—');
+      openBtn.textContent = label + ' · ' + summary;
       openBtn.addEventListener('click', function () { viewPastDay(k); });
       const del = document.createElement('button');
       del.type = 'button';
@@ -870,50 +1191,74 @@
   }
 
   function deleteDay(key) {
-    if (!confirm('Delete this day? You can undo for a few seconds.')) return;
-    const all = getDayMap();
-    const deleted = all[key];
-    if (!deleted) return;
-    undoStack.push({ type: 'day', key: key, data: deleted });
-    delete all[key];
-    saveJson('task-days', all);
-    cloudDeleteDay(key);
-    renderHistory();
-    renderEnergyCalendar();
-    renderWeekGraph();
-    renderWeeklySummary();
-    scheduleSyncPush();
-    showToast('Day deleted', 'info', 8000, true);
+    clearDay(key, 'Delete this day? Tasks, notes, and events on this date will be removed. You can undo for a few seconds.');
   }
 
   function viewPastDay(key) {
-    editingKey = key;
     switchTab('today');
-    loadDay();
+    openDay(key, true);
   }
 
   function backToToday() {
-    editingKey = null;
-    loadDay();
+    openDay(todayKey(), true);
   }
 
   function undoLast() {
     const last = undoStack.pop();
     if (!last) return;
-    if (last.type === 'day') {
+    const stamp = new Date().toISOString();
+    if (last.type === 'day' || last.type === 'clear') {
       const all = getDayMap();
-      all[last.key] = last.data;
+      if (last.day) {
+        last.day.savedAt = stamp;
+        delete last.day.deleted;
+        delete last.day.deletedAt;
+        all[last.key] = last.day;
+      } else if (last.data) {
+        last.data.savedAt = stamp;
+        delete last.data.deleted;
+        delete last.data.deletedAt;
+        all[last.key] = last.data;
+      } else {
+        delete all[last.key];
+      }
       saveJson('task-days', all);
-      cloudUpsertDay(last.key, last.data);
+      if (all[last.key]) cloudUpsertDay(last.key, all[last.key]);
+      if (last.plans) savePlannerItems(last.key, last.plans);
+      if (activeKey() === last.key) loadDay();
       renderHistory();
       renderEnergyCalendar();
       renderWeekGraph();
       renderWeeklySummary();
+      renderPlanner();
     } else if (last.type === 'planner') {
       const items = loadPlannerItems(last.key);
       items.splice(last.index, 0, last.data);
       savePlannerItems(last.key, items);
       renderPlanner();
+      renderDayEvents();
+    } else if (last.type === 'top3') {
+      const all = getDayMap();
+      const day = Object.assign({}, all[last.key] || {});
+      day.top3 = last.previous;
+      day.savedAt = stamp;
+      delete day.deleted;
+      delete day.deletedAt;
+      all[last.key] = day;
+      saveJson('task-days', all);
+      cloudUpsertDay(last.key, day);
+      if (activeKey() === last.key) loadDay();
+    } else if (last.type === 'brain') {
+      const all = getDayMap();
+      const day = Object.assign({}, all[last.key] || {});
+      day.brainDump = last.previous;
+      day.savedAt = stamp;
+      delete day.deleted;
+      delete day.deletedAt;
+      all[last.key] = day;
+      saveJson('task-days', all);
+      cloudUpsertDay(last.key, day);
+      if (activeKey() === last.key) loadDay();
     }
     scheduleSyncPush();
     showToast('Restored', 'success');
@@ -966,16 +1311,9 @@
     Object.keys(srcPlans).forEach(function (key) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return;
       const incoming = srcPlans[key];
-      if (!plans[key] || (Array.isArray(plans[key]) && plans[key].length === 0 && Array.isArray(incoming) && incoming.length)) {
-        plans[key] = incoming;
-        return;
-      }
-      const incomingUpdated = Date.parse((obj.plannerUpdated && obj.plannerUpdated[key]) || 0) || 0;
-      const localUpdated = Date.parse(meta[key] || 0) || 0;
-      if (incomingUpdated && incomingUpdated >= localUpdated) {
-        plans[key] = incoming;
-        meta[key] = (obj.plannerUpdated && obj.plannerUpdated[key]) || new Date().toISOString();
-      }
+      plans[key] = pickPlanner(plans[key], incoming);
+      const chosen = plannerMeta(plans[key]);
+      if (chosen && chosen.savedAt) meta[key] = chosen.savedAt;
     });
     saveJson('planner-entries', plans);
     saveJson('planner-updated', meta);
@@ -1000,21 +1338,42 @@
     reader.readAsText(file);
   }
 
-  function loadPlannerItems(key) {
-    const all = getPlannerMap();
-    const items = all[key] || [];
-    return Array.isArray(items) ? items.filter(function (it) { return it && typeof it === 'object'; }) : [];
+  function plannerMeta(items) {
+    if (!Array.isArray(items)) return null;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i] && items[i]._meta) return items[i];
+    }
+    return null;
   }
-
+  function visiblePlannerItems(items) {
+    if (!Array.isArray(items)) return [];
+    return items.filter(function (it) { return it && typeof it === 'object' && !it._meta; });
+  }
+  function loadPlannerItems(key) {
+    return visiblePlannerItems(getPlannerMap()[key]);
+  }
   function savePlannerItems(key, items) {
+    const visible = visiblePlannerItems(items);
+    const stamp = new Date().toISOString();
+    const stored = [{ _meta: true, savedAt: stamp }].concat(visible);
     const all = getPlannerMap();
-    all[key] = items.slice();
+    all[key] = stored;
     saveJson('planner-entries', all);
     const meta = loadJson('planner-updated', {});
-    meta[key] = new Date().toISOString();
+    meta[key] = stamp;
     saveJson('planner-updated', meta);
     scheduleSyncPush();
-    cloudUpsertPlanner(key, items);
+    cloudUpsertPlanner(key, stored);
+    renderDayEvents();
+  }
+  function pickPlanner(local, remote) {
+    if (!remote) return local;
+    if (!local) return remote;
+    const lt = Date.parse((plannerMeta(local) && plannerMeta(local).savedAt) || 0) || 0;
+    const rt = Date.parse((plannerMeta(remote) && plannerMeta(remote).savedAt) || 0) || 0;
+    if (lt || rt) return rt >= lt ? remote : local;
+    if (visiblePlannerItems(local).length === 0 && visiblePlannerItems(remote).length) return remote;
+    return local;
   }
 
 
@@ -1961,11 +2320,11 @@
   function friendlyAuthError(error) {
     const msg = String((error && (error.message || error.error_description)) || '');
     const lower = msg.toLowerCase();
-    if (lower.indexOf('invalid login') !== -1 || lower.indexOf('invalid credentials') !== -1 || lower.indexOf('email or password') !== -1) {
-      return 'That email or password doesn’t match. Please try again.';
+    if (lower.indexOf('invalid login') !== -1 || lower.indexOf('invalid credentials') !== -1 || lower.indexOf('email or password') !== -1 || lower.indexOf('username or password') !== -1) {
+      return 'That username or password doesn’t match. Please try again.';
     }
-    if (lower.indexOf('email not confirmed') !== -1) {
-      return 'Confirm your email, then sign in.';
+    if (lower.indexOf('email not confirmed') !== -1 || lower.indexOf('not confirmed') !== -1) {
+      return 'This account isn’t confirmed yet. Try again after it’s confirmed.';
     }
     if (lower.indexOf('mfa') !== -1 || lower.indexOf('factor') !== -1 || lower.indexOf('challenge') !== -1) {
       return 'That authenticator code didn’t work. Try the current code.';
@@ -1973,7 +2332,21 @@
     if (!msg || lower.indexOf('fetch') !== -1 || lower.indexOf('network') !== -1) {
       return 'Can’t reach sign-in right now. Check your connection and try again.';
     }
+    if (lower.indexOf('@') !== -1 || lower.indexOf(AUTH_EMAIL_DOMAIN) !== -1) {
+      return 'That username or password doesn’t match. Please try again.';
+    }
     return 'Couldn’t sign in. Please try again.';
+  }
+
+  function loginEmailFromUsername(raw) {
+    const value = String(raw || '').trim();
+    if (!value) return { error: 'Enter your username and password.' };
+    if (value.indexOf('@') !== -1) return { email: value };
+    const username = value.toLowerCase();
+    if (!/^[a-z0-9._-]{3,32}$/.test(username)) {
+      return { error: 'Usernames are 3–32 characters: letters, numbers, dots, underscores, and hyphens.' };
+    }
+    return { email: username + '@' + AUTH_EMAIL_DOMAIN };
   }
 
   function showLogin() {
@@ -1985,16 +2358,43 @@
 
   function getDisplayName() {
     if (!currentUser) return '';
-    return (currentUser.user_metadata && currentUser.user_metadata.username) ||
+    let name = (currentUser.user_metadata && currentUser.user_metadata.username) ||
       (currentUser.email && currentUser.email.split('@')[0]) ||
       'Signed in';
+    if (String(name).indexOf('@') !== -1) name = String(name).split('@')[0];
+    if (name && String(name).toLowerCase().endsWith('@' + AUTH_EMAIL_DOMAIN)) {
+      name = String(name).slice(0, -1 - AUTH_EMAIL_DOMAIN.length);
+    }
+    return name || 'Signed in';
+  }
+
+  function closeAccountMenu() {
+    const menu = $('accountMenu');
+    const btn = $('accountBtn');
+    if (menu) menu.hidden = true;
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  }
+
+  function toggleAccountMenu() {
+    const menu = $('accountMenu');
+    const btn = $('accountBtn');
+    if (!menu || !btn) return;
+    const willOpen = menu.hidden;
+    closeDayChrome();
+    menu.hidden = !willOpen;
+    btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
   }
 
   function updateAccountUI() {
+    const name = currentUser ? getDisplayName() : '';
     const emailEl = $('userEmail');
-    if (emailEl) emailEl.textContent = currentUser ? getDisplayName() : '';
-    const headerOut = $('headerSignOutBtn');
-    if (headerOut) headerOut.hidden = !currentUser;
+    if (emailEl) emailEl.textContent = name;
+    const who = $('accountWho');
+    if (who) who.textContent = name ? ('Signed in as ' + name) : 'Signed in';
+    const initial = $('accountInitial');
+    if (initial) initial.textContent = name ? String(name).charAt(0).toUpperCase() : '?';
+    const accountBtn = $('accountBtn');
+    if (accountBtn) accountBtn.setAttribute('aria-label', name ? ('Account menu, signed in as ' + name) : 'Account menu');
     const status = $('accountStatus');
     if (status) {
       status.textContent = currentUser
@@ -2071,6 +2471,9 @@
     });
     if ($('weeklySummary')) $('weeklySummary').textContent = '';
     if ($('userEmail')) $('userEmail').textContent = '';
+    if ($('accountWho')) $('accountWho').textContent = 'Signed in';
+    if ($('accountInitial')) $('accountInitial').textContent = '?';
+    closeAccountMenu();
     if ($('authPassword')) $('authPassword').value = '';
     editingKey = null;
     editingPlanner = null;
@@ -2099,6 +2502,15 @@
     }
     updateAccountUI();
     try { await loadFromCloud(); } catch (err) {}
+    const requested = readDateParam();
+    if (requested && requested !== todayKey()) {
+      editingKey = requested;
+      const parsed = parseDateKey(requested);
+      if (parsed) {
+        plannerDate = new Date(parsed.getTime());
+        pickerMonth = new Date(parsed.getFullYear(), parsed.getMonth(), 1);
+      }
+    }
     loadDay();
     renderPlanner();
     checkReminders();
@@ -2121,16 +2533,20 @@
       setAuthStatus('Can’t reach sign-in right now. Check your connection and try again.', true);
       return;
     }
-    const email = ($('authEmail').value || '').trim();
     const password = $('authPassword').value;
-    if (!email || !password) {
-      setAuthStatus('Enter your email and password.', true);
+    const login = loginEmailFromUsername($('authEmail') && $('authEmail').value);
+    if (!password || (login && login.error === 'Enter your username and password.')) {
+      setAuthStatus('Enter your username and password.', true);
+      return;
+    }
+    if (login.error) {
+      setAuthStatus(login.error, true);
       return;
     }
     setAuthBusy(true);
     setAuthStatus('Signing in…');
     try {
-      const result = await sb.auth.signInWithPassword({ email: email, password: password });
+      const result = await sb.auth.signInWithPassword({ email: login.email, password: password });
       if (result.error) {
         setAuthBusy(false);
         setAuthStatus(friendlyAuthError(result.error), true);
@@ -2239,8 +2655,8 @@
       if (daysRes.data) {
         const local = getDayMap();
         daysRes.data.forEach(function (row) {
-          if (!row || !row.date) return;
-          local[row.date] = local[row.date] ? newerDay(local[row.date], row.data) : row.data;
+          if (!row || !row.date || !parseDateKey(row.date)) return;
+          local[row.date] = mergeDayRecord(local[row.date], row.data);
         });
         saveJson('task-days', local);
       }
@@ -2250,10 +2666,10 @@
         const local = getPlannerMap();
         const meta = loadJson('planner-updated', {});
         plansRes.data.forEach(function (row) {
-          if (!row || !row.date) return;
-          if (!local[row.date] || (Array.isArray(local[row.date]) && local[row.date].length === 0 && Array.isArray(row.items) && row.items.length)) {
-            local[row.date] = row.items;
-          }
+          if (!row || !row.date || !parseDateKey(row.date)) return;
+          local[row.date] = pickPlanner(local[row.date], row.items);
+          const chosen = plannerMeta(local[row.date]);
+          if (chosen && chosen.savedAt) meta[row.date] = chosen.savedAt;
         });
         saveJson('planner-entries', local);
         saveJson('planner-updated', meta);
@@ -2515,8 +2931,26 @@
   function bindEvents() {
     $('themeBtn').addEventListener('click', function () {
       setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+      closeAccountMenu();
     });
-    $('settingsBtn').addEventListener('click', function () { updateAccountUI(); fillSyncForm(); openModal('settingsModal'); });
+    $('settingsBtn').addEventListener('click', function () {
+      closeAccountMenu();
+      updateAccountUI();
+      fillSyncForm();
+      openModal('settingsModal');
+    });
+    if ($('accountBtn')) $('accountBtn').addEventListener('click', function (e) {
+      e.stopPropagation();
+      toggleAccountMenu();
+    });
+    document.addEventListener('click', function (e) {
+      const menu = $('accountMenu');
+      const btn = $('accountBtn');
+      if (!menu || menu.hidden) return;
+      if (btn && (e.target === btn || btn.contains(e.target))) return;
+      if (menu.contains(e.target)) return;
+      closeAccountMenu();
+    });
     $('closeSettingsBtn').addEventListener('click', function () { closeModal('settingsModal'); });
     $('energyBtns').addEventListener('click', function (e) {
       const btn = e.target.closest('button[data-level]');
@@ -2538,7 +2972,7 @@
     if ($('meds-morning')) $('meds-morning').addEventListener('change', scheduleSave);
     if ($('meds-afternoon')) $('meds-afternoon').addEventListener('change', scheduleSave);
     if ($('addAnotherTask')) $('addAnotherTask').addEventListener('click', revealAnotherTask);
-    $('brainDump').addEventListener('input', scheduleSave);
+    $('brainDump').addEventListener('input', function () { renderBrainLines(); scheduleSave(); });
     $('gotDone').addEventListener('input', scheduleSave);
     $('carryOver').addEventListener('input', scheduleSave);
     $('tomorrow1').addEventListener('input', scheduleSave);
@@ -2624,6 +3058,20 @@
     $('historySearch').addEventListener('input', renderHistory);
     $('newItemText').addEventListener('keydown', function (e) { if (e.key === 'Enter') confirmAddItem(); });
     $('winInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('confirmWinBtn').click(); });
+    if ($('prevDayBtn')) $('prevDayBtn').addEventListener('click', function () {
+      const base = parseDateKey(activeKey()) || new Date();
+      base.setDate(base.getDate() - 1);
+      openDay(dateKey(base), true);
+    });
+    if ($('nextDayBtn')) $('nextDayBtn').addEventListener('click', function () {
+      const base = parseDateKey(activeKey()) || new Date();
+      base.setDate(base.getDate() + 1);
+      openDay(dateKey(base), true);
+    });
+    if ($('jumpTodayBtn')) $('jumpTodayBtn').addEventListener('click', function () { openDay(todayKey(), true); });
+    if ($('openDayPickerBtn')) $('openDayPickerBtn').addEventListener('click', toggleDayPicker);
+    if ($('dayMenuBtn')) $('dayMenuBtn').addEventListener('click', toggleDayMenu);
+    if ($('clearDayBtn')) $('clearDayBtn').addEventListener('click', function () { clearDay(activeKey()); });
     if ($('headerSignOutBtn')) $('headerSignOutBtn').addEventListener('click', signOut);
     if ($('syncForm')) $('syncForm').addEventListener('submit', function (e) { e.preventDefault(); });
     $('syncSaveBtn').addEventListener('click', saveSyncSettings);
@@ -2631,6 +3079,8 @@
     $('syncCreateBtn').addEventListener('click', createSecretGist);
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') {
+        closeAccountMenu();
+        closeDayChrome();
         ['settingsModal', 'addItemModal', 'winModal'].forEach(closeModal);
       }
     });
@@ -2647,7 +3097,22 @@
         syncNow(false);
       }
     });
-    window.addEventListener('beforeunload', function () { saveDay(); });
+    window.addEventListener('beforeunload', function () { flushSave(); });
+    window.addEventListener('popstate', function () {
+      if (document.documentElement.dataset.gate !== 'signed-in') return;
+      flushSave();
+      const requested = readDateParam();
+      const key = requested || todayKey();
+      editingKey = key === todayKey() ? null : key;
+      const parsed = parseDateKey(key);
+      if (parsed) {
+        plannerDate = new Date(parsed.getTime());
+        pickerMonth = new Date(parsed.getFullYear(), parsed.getMonth(), 1);
+      }
+      closeDayChrome();
+      loadDay();
+      renderPlanner();
+    });
   }
 
   function applyLocationHash() {
@@ -2701,7 +3166,7 @@
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js?v=2').catch(function (err) {
+    navigator.serviceWorker.register('sw.js?v=5').catch(function (err) {
       console.warn('Service worker not registered:', err);
     });
   });

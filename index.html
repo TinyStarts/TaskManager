@@ -45,12 +45,25 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
         <div class="tagline">Low friction. No guilt.</div>
       </div>
     </div>
+    <nav class="tabs" aria-label="Main">
+      <button type="button" class="active" data-tab="today" id="tabToday"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h8M8 11h8M8 16h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M5 5.5A2.5 2.5 0 0 1 7.5 3h9A2.5 2.5 0 0 1 19 5.5v13A2.5 2.5 0 0 1 16.5 21h-9A2.5 2.5 0 0 1 5 18.5v-13Z" fill="none" stroke="currentColor" stroke-width="1.7"/></svg><span>Today</span></button>
+      <button type="button" data-tab="planner" id="tabPlanner"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="3" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8 3.5v3M16 3.5v3M3.5 10h17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><span>Schedule</span></button>
+      <button type="button" data-tab="progress" id="tabProgress"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 17V10M10 17V7M15 17v-4M20 17V5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>Progress</span></button>
+    </nav>
     <div class="header-actions">
       <button type="button" id="timerChip" title="Timer running" aria-live="polite"></button>
-      <span class="user-chip" id="userEmail"></span>
-      <button type="button" class="btn ghost" id="headerSignOutBtn" hidden>Sign out</button>
-      <button type="button" class="icon-btn" id="themeBtn" title="Toggle theme" aria-label="Toggle theme"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v1.6M12 19.4V21M3 12h1.6M19.4 12H21M5.6 5.6l1.1 1.1M17.3 17.3l1.1 1.1M5.6 18.4l1.1-1.1M17.3 6.7l1.1-1.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
-      <button type="button" class="icon-btn" id="settingsBtn" title="Settings and backup" aria-label="Settings"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.7" d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"/><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" d="M19.4 15a1.7 1.7 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.82-.33 1.7 1.7 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.68 15a1.7 1.7 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.68a1.7 1.7 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.51 1.7 1.7 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1Z"/></svg></button>
+      <div class="account">
+        <button type="button" class="avatar" id="accountBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="accountMenu" aria-label="Account menu">
+          <span id="accountInitial" aria-hidden="true">?</span>
+        </button>
+        <div id="accountMenu" class="account-menu" hidden role="menu">
+          <p class="account-who" id="accountWho">Signed in</p>
+          <span class="visually-hidden" id="userEmail"></span>
+          <button type="button" class="menu-item" id="themeBtn" role="menuitem">Theme</button>
+          <button type="button" class="menu-item" id="settingsBtn" role="menuitem">Settings</button>
+          <button type="button" class="menu-item" id="headerSignOutBtn" role="menuitem">Sign out</button>
+        </div>
+      </div>
     </div>
   </div>
 </header>
@@ -70,9 +83,21 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
   </div>
   <section id="todayView" class="view active">
     <div class="date-row today-head">
-      <div>
-        <h2 id="todayHeading">Today</h2>
+      <div class="day-nav-wrap">
+        <div class="day-nav">
+          <button type="button" class="icon-btn" id="prevDayBtn" aria-label="Previous day"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6 8.5 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button type="button" class="day-title-btn" id="openDayPickerBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="dayPicker">
+            <h2 id="todayHeading">Today</h2>
+          </button>
+          <button type="button" class="icon-btn" id="nextDayBtn" aria-label="Next day"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6 15.5 12l-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button type="button" class="btn secondary" id="jumpTodayBtn">Today</button>
+          <button type="button" class="icon-btn" id="dayMenuBtn" aria-label="Day options" aria-haspopup="menu" aria-expanded="false" aria-controls="dayMenu"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="18" cy="12" r="1.4" fill="currentColor"/></svg></button>
+        </div>
         <p id="todayTagline">Start with your energy, then one small next action.</p>
+        <div id="dayMenu" class="day-menu" hidden role="menu">
+          <button type="button" class="btn secondary" id="clearDayBtn" role="menuitem">Clear this day</button>
+        </div>
+        <div id="dayPicker" class="day-picker" hidden role="dialog" aria-modal="false" aria-label="Choose a day"></div>
       </div>
       <p class="saved-indicator" id="saveStatus" role="status" aria-live="polite"></p>
     </div>
@@ -111,6 +136,7 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
       <h3>Quick brain dump</h3>
       <p class="hint">Optional. Get it out of your head before you pick today&#8217;s actions.</p>
       <textarea id="brainDump" name="brainDump" placeholder="Dump everything on your mind&#8230;"></textarea>
+      <ul id="brainDumpLines" class="brain-lines"></ul>
       <div class="btn-row">
         <button type="button" class="btn secondary" id="suggestTop3Btn">Suggest from this</button>
       </div>
@@ -120,12 +146,18 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
     <div id="carryPrompt"></div>
 
     <div class="card" id="top3Card">
-      <h3>Today&#8217;s Top 3</h3>
+      <h3 id="top3Title">Today&#8217;s Top 3</h3>
       <p class="hint" id="top3Hint">Write the next concrete step, not the whole project.</p>
       <div id="top3"></div>
       <div class="btn-row">
         <button type="button" class="btn secondary" id="addAnotherTask" hidden>+ Add another</button>
       </div>
+    </div>
+
+    <div class="card" id="dayScheduleCard">
+      <h3>Schedule this day</h3>
+      <p class="hint" id="dayEventsHint">Events saved on this date.</p>
+      <div id="dayEvents"></div>
     </div>
 
     <details class="fold" id="microFold">
@@ -237,8 +269,8 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
       <div id="weeklySummary" class="hint"></div>
     </div>
     <div class="card">
-      <h3>Recent days</h3>
-      <p class="hint">Open a day to edit it. You can undo a delete for a few seconds.</p>
+      <h3>Past days</h3>
+      <p class="hint">Most recent first. Open a day to view or edit it.</p>
       <input type="search" id="historySearch" name="historySearch" placeholder="Search your days&#8230;" aria-label="Search saved days">
       <div id="history"></div>
     </div>
@@ -252,16 +284,10 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
   <footer class="note">Saved to your account.<br>Low friction, no guilt.</footer>
 </main>
 
-<nav class="tabs" aria-label="Main">
-  <button type="button" class="active" data-tab="today" id="tabToday"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h8M8 11h8M8 16h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M5 5.5A2.5 2.5 0 0 1 7.5 3h9A2.5 2.5 0 0 1 19 5.5v13A2.5 2.5 0 0 1 16.5 21h-9A2.5 2.5 0 0 1 5 18.5v-13Z" fill="none" stroke="currentColor" stroke-width="1.7"/></svg><span>Today</span></button>
-  <button type="button" data-tab="planner" id="tabPlanner"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="3" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8 3.5v3M16 3.5v3M3.5 10h17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><span>Schedule</span></button>
-  <button type="button" data-tab="progress" id="tabProgress"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 17V10M10 17V7M15 17v-4M20 17V5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>Progress</span></button>
-</nav>
-
 <div id="settingsModal" class="modal" role="dialog" aria-labelledby="settingsTitle" aria-modal="true">
   <div class="modal-box">
     <h2 id="settingsTitle">Settings</h2>
-    <p class="hint" id="accountStatus">Sign in with the same email and password on your phone and on the Life Admin computer so both stay in sync.</p>
+    <p class="hint" id="accountStatus">Sign in with the same username and password on your phone and on the Life Admin computer so both stay in sync.</p>
     <div class="btn-row" id="authButtons"></div>
     <div id="securityPanel"></div>
 
@@ -314,10 +340,10 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
       </div>
     </div>
     <h2 id="authTitle">Sign in</h2>
-    <p class="hint" id="authHint">Use the same email and password on your phone and on the Life Admin computer.</p>
+    <p class="hint" id="authHint">Use the same username and password on your phone and on the Life Admin computer.</p>
     <form id="authForm">
-      <label class="field" for="authEmail">Email</label>
-      <input type="email" id="authEmail" name="authEmail" autocomplete="username" required>
+      <label class="field" for="authEmail">Username</label>
+      <input type="text" id="authEmail" name="authEmail" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Username" aria-label="Username" data-label="Username" required>
       <label class="field" for="authPassword">Password</label>
       <input type="password" id="authPassword" name="authPassword" autocomplete="current-password" required>
       <label class="field" for="authTotp" id="authTotpLabel" hidden>Authenticator code</label>
