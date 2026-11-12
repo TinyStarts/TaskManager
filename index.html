@@ -70,9 +70,21 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
   </div>
   <section id="todayView" class="view active">
     <div class="date-row today-head">
-      <div>
-        <h2 id="todayHeading">Today</h2>
+      <div class="day-nav-wrap">
+        <div class="day-nav">
+          <button type="button" class="icon-btn" id="prevDayBtn" aria-label="Previous day"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6 8.5 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button type="button" class="day-title-btn" id="openDayPickerBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="dayPicker">
+            <h2 id="todayHeading">Today</h2>
+          </button>
+          <button type="button" class="icon-btn" id="nextDayBtn" aria-label="Next day"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6 15.5 12l-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button type="button" class="btn secondary" id="jumpTodayBtn">Today</button>
+          <button type="button" class="icon-btn" id="dayMenuBtn" aria-label="Day options" aria-haspopup="menu" aria-expanded="false" aria-controls="dayMenu"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="18" cy="12" r="1.4" fill="currentColor"/></svg></button>
+        </div>
         <p id="todayTagline">Start with your energy, then one small next action.</p>
+        <div id="dayMenu" class="day-menu" hidden role="menu">
+          <button type="button" class="btn secondary" id="clearDayBtn" role="menuitem">Clear this day</button>
+        </div>
+        <div id="dayPicker" class="day-picker" hidden role="dialog" aria-modal="false" aria-label="Choose a day"></div>
       </div>
       <p class="saved-indicator" id="saveStatus" role="status" aria-live="polite"></p>
     </div>
@@ -111,6 +123,7 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
       <h3>Quick brain dump</h3>
       <p class="hint">Optional. Get it out of your head before you pick today&#8217;s actions.</p>
       <textarea id="brainDump" name="brainDump" placeholder="Dump everything on your mind&#8230;"></textarea>
+      <ul id="brainDumpLines" class="brain-lines"></ul>
       <div class="btn-row">
         <button type="button" class="btn secondary" id="suggestTop3Btn">Suggest from this</button>
       </div>
@@ -120,12 +133,18 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
     <div id="carryPrompt"></div>
 
     <div class="card" id="top3Card">
-      <h3>Today&#8217;s Top 3</h3>
+      <h3 id="top3Title">Today&#8217;s Top 3</h3>
       <p class="hint" id="top3Hint">Write the next concrete step, not the whole project.</p>
       <div id="top3"></div>
       <div class="btn-row">
         <button type="button" class="btn secondary" id="addAnotherTask" hidden>+ Add another</button>
       </div>
+    </div>
+
+    <div class="card" id="dayScheduleCard">
+      <h3>Schedule this day</h3>
+      <p class="hint" id="dayEventsHint">Events saved on this date.</p>
+      <div id="dayEvents"></div>
     </div>
 
     <details class="fold" id="microFold">
@@ -237,8 +256,8 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
       <div id="weeklySummary" class="hint"></div>
     </div>
     <div class="card">
-      <h3>Recent days</h3>
-      <p class="hint">Open a day to edit it. You can undo a delete for a few seconds.</p>
+      <h3>Past days</h3>
+      <p class="hint">Most recent first. Open a day to view or edit it.</p>
       <input type="search" id="historySearch" name="historySearch" placeholder="Search your days&#8230;" aria-label="Search saved days">
       <div id="history"></div>
     </div>

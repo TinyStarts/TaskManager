@@ -517,6 +517,43 @@
   .wins-list li:last-child { border-bottom: none; }
   .wins-list .win-date { display: block; font-size: 0.78rem; color: var(--muted); }
 
+  .day-nav-wrap { min-width: 0; flex: 1; }
+  .day-nav { display: flex; align-items: center; gap: 2px; flex-wrap: nowrap; }
+  .day-title-btn {
+    border: none; background: transparent; color: inherit; text-align: left;
+    border-radius: 12px; padding: 4px 6px; min-height: 44px; flex: 1; min-width: 0;
+  }
+  .day-title-btn h2 { margin: 0; font-size: 1.2rem; line-height: 1.15; }
+  #headerSignOutBtn { white-space: nowrap; }
+  @media (max-width: 480px) {
+    .user-chip { display: none; }
+    .day-title-btn h2 { font-size: 1.05rem; white-space: nowrap; }
+  }
+  .day-title-btn:hover, .day-title-btn[aria-expanded="true"] { background: var(--bg-accent); }
+  #jumpTodayBtn { width: auto; min-height: 40px; padding: 6px 12px; }
+  .day-menu { margin: 4px 0 10px; }
+  .day-picker {
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    padding: 12px; margin: 4px 0 14px; box-shadow: var(--shadow); max-width: 360px;
+  }
+  .day-picker .mini-day { min-height: 40px; max-height: none; font-size: 0.9rem; }
+  .brain-lines { list-style: none; padding: 0; margin: 8px 0 0; }
+  .brain-line {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 6px 0; border-top: 1px solid var(--line); font-size: 0.92rem;
+  }
+  .brain-line span { flex: 1; min-width: 0; }
+  .day-event {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 0; border-top: 1px solid var(--line);
+  }
+  .day-event button.event-open {
+    flex: 1; min-width: 0; text-align: left; border: none; background: transparent;
+    color: inherit; padding: 6px 0; min-height: 44px;
+  }
+  .day-event .when { display: block; color: var(--muted); font-size: 0.78rem; }
+  .icon-text { width: auto; min-height: 36px; padding: 4px 8px; color: var(--danger); font-weight: 600; }
+
   html:not([data-gate="signed-in"]) header.app,
   html:not([data-gate="signed-in"]) #mainApp,
   html:not([data-gate="signed-in"]) nav.tabs,
