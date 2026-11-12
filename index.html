@@ -292,10 +292,27 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
       <input type="search" id="historySearch" name="historySearch" placeholder="Search your days&#8230;" aria-label="Search saved days">
       <div id="history"></div>
     </div>
-    <div class="btn-row">
-      <button type="button" class="btn" id="exportBtn">Download backup</button>
-      <button type="button" class="btn secondary" id="importBtn">Restore from backup</button>
-      <input type="file" id="importFile" accept="application/json,.json" hidden>
+    <div class="card" id="exportCard">
+      <h3>Export</h3>
+      <p class="hint">Download your days to look at later, or share the file. It does not include a password.</p>
+      <label class="field" for="exportRange">Which days</label>
+      <select id="exportRange" name="exportRange">
+        <option value="7" selected>Last 7 days</option>
+        <option value="30">Last 30 days</option>
+        <option value="all">All</option>
+      </select>
+      <label class="field" for="exportFormat">File type</label>
+      <select id="exportFormat" name="exportFormat">
+        <option value="csv" selected>Spreadsheet (CSV)</option>
+        <option value="json">JSON</option>
+      </select>
+      <p class="hint" id="exportStatus" role="status"></p>
+      <div class="btn-row">
+        <button type="button" class="btn" id="exportBtn">Download</button>
+        <button type="button" class="btn secondary" id="exportShareBtn" hidden>Share</button>
+        <button type="button" class="btn secondary" id="importBtn">Restore from backup</button>
+        <input type="file" id="importFile" accept="application/json,.json" hidden>
+      </div>
     </div>
   </section>
 

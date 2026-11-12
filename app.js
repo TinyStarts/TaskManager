@@ -1537,6 +1537,214 @@
     showToast('Backup downloaded', 'success');
   }
 
+  function setExportStatus(text) {
+    const el = $('exportStatus');
+    if (el) el.textContent = text || '';
+  }
+
+  function exportShareSupported() {
+    try {
+      if (!navigator.share || !navigator.canShare) return false;
+      const file = new File(['day'], 'tinystarts-export.csv', { type: 'text/csv' });
+      return !!navigator.canShare({ files: [file] });
+    } catch (err) { return false; }
+  }
+
+  function initExportShare() {
+    const btn = $('exportShareBtn');
+    if (btn) btn.hidden = !exportShareSupported();
+  }
+
+  function csvCell(value) {
+    const text = value == null ? '' : String(value);
+    if (/[",\n\r]/.test(text)) return '"' + text.replace(/"/g, '""') + '"';
+    return text;
+  }
+
+  function inExportRange(key, range) {
+    if (!parseDateKey(key)) return false;
+    if (range === 'all') return true;
+    const count = range === '30' ? 30 : 7;
+    const end = parseDateKey(todayKey());
+    const start = new Date(end.getTime());
+    start.setDate(start.getDate() - (count - 1));
+    const day = parseDateKey(key);
+    return day >= start && day <= end;
+  }
+
+  function dayIsExportable(data) {
+    return !!(data && !isDeletedRecord(data));
+  }
+
+  async function collectExportSource() {
+    const days = getDayMap();
+    let affirmations = getAffirmationStore();
+    if (currentUser && initSupabase() && (typeof navigator === 'undefined' || navigator.onLine !== false)) {
+      try {
+        const daysRes = await sb.from('task_days').select('date, data').eq('user_id', currentUser.id);
+        if (!daysRes.error && daysRes.data) {
+          daysRes.data.forEach(function (row) {
+            if (!row || !parseDateKey(row.date)) return;
+            days[row.date] = mergeDayRecord(days[row.date], row.data);
+          });
+        }
+        const affRes = await sb.from('user_affirmations').select('data').eq('user_id', currentUser.id);
+        if (!affRes.error && affRes.data && affRes.data[0] && affRes.data[0].data) {
+          const remote = affRes.data[0].data;
+          if (recordTime(remote) >= recordTime(affirmations)) affirmations = remote;
+        }
+      } catch (err) {}
+    }
+    return { days: days, affirmations: affirmations };
+  }
+
+  function savedAffirmationTexts(store) {
+    const items = store && Array.isArray(store.items) ? store.items : [];
+    return items.filter(function (item) {
+      return item && !item.deletedAt && String(item.text || '').trim();
+    }).map(function (item) { return String(item.text).trim(); });
+  }
+
+  function buildExportRows(source, range) {
+    const texts = savedAffirmationTexts(source.affirmations);
+    const saved = texts.join(' | ');
+    const rows = [];
+    Object.keys(source.days).filter(function (key) {
+      return inExportRange(key, range) && dayIsExportable(source.days[key]);
+    }).sort().forEach(function (key) {
+      const day = source.days[key] || {};
+      const top3 = normalizeTop3(day.top3);
+      const meds = normalizeMeds(day.meds);
+      const supplements = {};
+      const rawSupplements = day.meds && day.meds.supplements && typeof day.meds.supplements === 'object' ? day.meds.supplements : {};
+      Object.keys(rawSupplements).forEach(function (key) {
+        const slug = String(key || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        if (slug) supplements[slug] = !!rawSupplements[key];
+      });
+      rows.push({
+        date: key,
+        affirmation: (day.affirmation && String(day.affirmation).trim()) || '',
+        top3: top3.slice(0, 3).map(function (item) { return { text: item.text || '', done: !!item.done }; }),
+        brainDump: day.brainDump || '',
+        energy: day.energy || '',
+        medsMorning: !!meds.morning,
+        medsAfternoon: !!meds.afternoon,
+        supplements: supplements,
+        savedAffirmations: saved
+      });
+    });
+    return { rows: rows, savedAffirmations: texts };
+  }
+
+  function supplementColumns(rows) {
+    const slugs = {};
+    rows.forEach(function (row) {
+      Object.keys(row.supplements || {}).forEach(function (slug) { slugs[slug] = true; });
+    });
+    return Object.keys(slugs).sort();
+  }
+
+  function buildExportCsv(rows) {
+    const extras = supplementColumns(rows);
+    const header = ['date', 'affirmation', 'top3_1', 'top3_1_done', 'top3_2', 'top3_2_done', 'top3_3', 'top3_3_done', 'brain_dump', 'energy', 'meds_morning', 'meds_afternoon']
+      .concat(extras.map(function (slug) { return 'med_' + slug.replace(/-/g, '_'); }))
+      .concat(['saved_affirmations']);
+    const lines = [header.join(',')];
+    rows.forEach(function (row) {
+      const cells = [
+        row.date,
+        row.affirmation,
+        row.top3[0] ? row.top3[0].text : '',
+        row.top3[0] && row.top3[0].done ? 'yes' : 'no',
+        row.top3[1] ? row.top3[1].text : '',
+        row.top3[1] && row.top3[1].done ? 'yes' : 'no',
+        row.top3[2] ? row.top3[2].text : '',
+        row.top3[2] && row.top3[2].done ? 'yes' : 'no',
+        row.brainDump,
+        row.energy,
+        row.medsMorning ? 'yes' : 'no',
+        row.medsAfternoon ? 'yes' : 'no'
+      ];
+      extras.forEach(function (slug) {
+        cells.push(row.supplements[slug] ? 'yes' : 'no');
+      });
+      cells.push(row.savedAffirmations);
+      lines.push(cells.map(csvCell).join(','));
+    });
+    return lines.join('\r\n') + '\r\n';
+  }
+
+  function buildExportJson(rows, savedAffirmations, range) {
+    return JSON.stringify({
+      exportedAt: new Date().toISOString(),
+      range: range,
+      savedAffirmations: savedAffirmations,
+      days: rows.map(function (row) {
+        return {
+          date: row.date,
+          affirmation: row.affirmation,
+          top3: row.top3,
+          brainDump: row.brainDump,
+          energy: row.energy,
+          meds: {
+            morning: row.medsMorning,
+            afternoon: row.medsAfternoon,
+            supplements: row.supplements
+          },
+          savedAffirmations: savedAffirmationTexts({ items: savedAffirmations.map(function (text) { return { text: text }; }) })
+        };
+      })
+    }, null, 2);
+  }
+
+  async function makeExportFile() {
+    const range = ($('exportRange') && $('exportRange').value) || '7';
+    const format = ($('exportFormat') && $('exportFormat').value) === 'json' ? 'json' : 'csv';
+    const source = await collectExportSource();
+    const built = buildExportRows(source, range);
+    if (!built.rows.length) {
+      setExportStatus('No entries yet in this range.');
+      return null;
+    }
+    setExportStatus('');
+    const name = 'tinystarts-export-' + todayKey() + '.' + format;
+    if (format === 'json') {
+      return new File([buildExportJson(built.rows, built.savedAffirmations, range)], name, { type: 'application/json' });
+    }
+    return new File([buildExportCsv(built.rows)], name, { type: 'text/csv' });
+  }
+
+  function downloadFile(file) {
+    const url = URL.createObjectURL(file);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = file.name;
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+  }
+
+  async function downloadExport() {
+    const file = await makeExportFile();
+    if (!file) return;
+    downloadFile(file);
+    showToast('Export downloaded', 'success');
+  }
+
+  async function shareExport() {
+    const file = await makeExportFile();
+    if (!file) return;
+    try {
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'TinyStarts export', text: 'My planner days' });
+        return;
+      }
+    } catch (err) {
+      if (err && err.name === 'AbortError') return;
+    }
+    showToast('Couldn’t share just now. The download is ready instead.', 'info', 5000);
+    downloadFile(file);
+  }
+
   function newerDay(a, b) {
     const at = Date.parse((a && a.savedAt) || 0) || 0;
     const bt = Date.parse((b && b.savedAt) || 0) || 0;
@@ -3331,7 +3539,8 @@
       if ($('newItemEnd')) $('newItemEnd').disabled = on;
     });
     $('copyTomorrowBtn').addEventListener('click', copyDayToTomorrow);
-    $('exportBtn').addEventListener('click', exportData);
+    $('exportBtn').addEventListener('click', function () { downloadExport(); });
+    if ($('exportShareBtn')) $('exportShareBtn').addEventListener('click', function () { shareExport(); });
     $('exportBtn2').addEventListener('click', exportData);
     function pickImport() { $('importFile').click(); }
     $('importBtn').addEventListener('click', pickImport);
@@ -3431,6 +3640,7 @@
 
   function start() {
     initTheme();
+    initExportShare();
     document.body.dataset.view = 'today';
     document.documentElement.dataset.gate = 'checking';
     if ($('authForm')) $('authForm').addEventListener('submit', function (e) {
@@ -3452,7 +3662,7 @@
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js?v=6').catch(function (err) {
+    navigator.serviceWorker.register('sw.js?v=9').catch(function (err) {
       console.warn('Service worker not registered:', err);
     });
   });
