@@ -237,9 +237,144 @@
     const btn = document.querySelector('#energyBtns button.active');
     return btn ? btn.dataset.level : null;
   }
+  const DEFAULT_SUPPLEMENTS = [
+    { slug: 'vitamin-d', label: 'Vitamin D', locked: true },
+    { slug: 'vitamin-k', label: 'Vitamin K', locked: true },
+    { slug: 'zinc', label: 'Zinc', locked: true }
+  ];
+
+  function supplementSlug(label) {
+    return String(label || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 32);
+  }
+
+  function getSupplementCatalog() {
+    const raw = loadJson('supplement-catalog', null);
+    const saved = raw && Array.isArray(raw.items) ? raw.items : [];
+    const bySlug = {};
+    saved.forEach(function (item) {
+      const slug = supplementSlug(item && (item.slug || item.label));
+      if (!slug) return;
+      bySlug[slug] = { slug: slug, label: String((item && item.label) || slug).trim().slice(0, 40) || slug, locked: !!item.locked };
+    });
+    DEFAULT_SUPPLEMENTS.forEach(function (item) {
+      if (!bySlug[item.slug]) bySlug[item.slug] = { slug: item.slug, label: item.label, locked: true };
+      else bySlug[item.slug].locked = true;
+    });
+    const ordered = [];
+    DEFAULT_SUPPLEMENTS.forEach(function (item) { ordered.push(bySlug[item.slug]); });
+    Object.keys(bySlug).forEach(function (slug) {
+      if (!DEFAULT_SUPPLEMENTS.some(function (item) { return item.slug === slug; })) ordered.push(bySlug[slug]);
+    });
+    return ordered;
+  }
+
+  function saveSupplementCatalog(items) {
+    saveJson('supplement-catalog', { items: items });
+  }
+
   function normalizeMeds(meds) {
     const src = meds && typeof meds === 'object' ? meds : {};
-    return { morning: !!src.morning, afternoon: !!src.afternoon };
+    const supplements = {};
+    const raw = src.supplements && typeof src.supplements === 'object' ? src.supplements : {};
+    Object.keys(raw).forEach(function (key) {
+      const slug = supplementSlug(key);
+      if (slug) supplements[slug] = !!raw[key];
+    });
+    return { morning: !!src.morning, afternoon: !!src.afternoon, supplements: supplements };
+  }
+
+  function readSupplementChecks() {
+    const supplements = {};
+    document.querySelectorAll('#supplementList input[data-supplement]').forEach(function (input) {
+      supplements[input.dataset.supplement] = !!input.checked;
+    });
+    return supplements;
+  }
+
+  function renderSupplementChecks(checkedMap) {
+    const wrap = $('supplementList');
+    if (!wrap) return;
+    const checked = checkedMap || {};
+    wrap.innerHTML = '';
+    getSupplementCatalog().forEach(function (item) {
+      const label = document.createElement('label');
+      label.className = 'check-pill';
+      label.htmlFor = 'med-' + item.slug;
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.id = 'med-' + item.slug;
+      input.name = 'med-' + item.slug;
+      input.dataset.supplement = item.slug;
+      input.checked = !!checked[item.slug];
+      const span = document.createElement('span');
+      span.textContent = item.label;
+      label.appendChild(input);
+      label.appendChild(span);
+      wrap.appendChild(label);
+    });
+  }
+
+  function renderSupplementSettings() {
+    const list = $('supplementSettings');
+    if (!list) return;
+    list.innerHTML = '';
+    getSupplementCatalog().forEach(function (item) {
+      const row = document.createElement('div');
+      row.className = 'supplement-setting';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = item.label;
+      input.id = 'supplement-label-' + item.slug;
+      input.maxLength = 40;
+      input.setAttribute('aria-label', 'Name for ' + item.label);
+      input.addEventListener('change', function () { renameSupplement(item.slug, input.value); });
+      row.appendChild(input);
+      if (!item.locked) {
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'btn ghost';
+        del.id = 'supplement-remove-' + item.slug;
+        del.textContent = 'Remove';
+        del.addEventListener('click', function () { removeSupplement(item.slug); });
+        row.appendChild(del);
+      }
+      list.appendChild(row);
+    });
+  }
+
+  function renameSupplement(slug, label) {
+    const name = String(label || '').trim().slice(0, 40);
+    if (!name) { renderSupplementSettings(); return; }
+    const items = getSupplementCatalog().map(function (item) {
+      if (item.slug !== slug) return item;
+      return { slug: item.slug, label: name, locked: item.locked };
+    });
+    saveSupplementCatalog(items);
+    renderSupplementChecks(readSupplementChecks());
+    renderSupplementSettings();
+  }
+
+  function removeSupplement(slug) {
+    if (DEFAULT_SUPPLEMENTS.some(function (item) { return item.slug === slug; })) return;
+    saveSupplementCatalog(getSupplementCatalog().filter(function (item) { return item.slug !== slug; }));
+    renderSupplementChecks(readSupplementChecks());
+    renderSupplementSettings();
+  }
+
+  function addSupplement(label) {
+    const name = String(label || '').trim().slice(0, 40);
+    const slug = supplementSlug(name);
+    if (!slug) { showToast('Give the supplement a name', 'info'); return; }
+    const items = getSupplementCatalog();
+    if (items.some(function (item) { return item.slug === slug; })) {
+      showToast('That one is already on the list', 'info');
+      return;
+    }
+    items.push({ slug: slug, label: name, locked: false });
+    saveSupplementCatalog(items);
+    renderSupplementChecks(readSupplementChecks());
+    renderSupplementSettings();
+    if ($('newSupplementName')) $('newSupplementName').value = '';
   }
   function normalizeMicro(list) {
     if (!Array.isArray(list)) return [];
@@ -286,11 +421,40 @@
       setTimeout(function () { toast.remove(); }, 300);
     }, duration || 3000);
   }
-  function setSaveStatus(text) {
+  let saveSeq = 0;
+  let saveRetryTimer = null;
+  let pendingCloudSave = null;
+
+  function setSaveStatus(state, text) {
     const el = $('saveStatus');
     if (!el) return;
+    el.dataset.state = state || '';
     el.textContent = text || '';
     el.classList.toggle('show', !!text);
+  }
+
+  function savedClock(date) {
+    return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
+
+  function finishCloudSave(seq, ok) {
+    if (seq !== saveSeq) return;
+    if (ok) {
+      pendingCloudSave = null;
+      setSaveStatus('saved', 'Saved ' + savedClock(new Date()));
+      return;
+    }
+    setSaveStatus('error', 'Not saved yet, will retry');
+    clearTimeout(saveRetryTimer);
+    saveRetryTimer = setTimeout(retryCloudSave, 4000);
+  }
+
+  function retryCloudSave() {
+    if (!pendingCloudSave || pendingCloudSave.seq !== saveSeq) return;
+    if ($('saveStatus')) setSaveStatus('saving', 'Saving…');
+    cloudUpsertDay(pendingCloudSave.key, pendingCloudSave.data, function (ok) {
+      finishCloudSave(pendingCloudSave.seq, ok);
+    });
   }
   function openModal(id) { const el = $(id); if (el) el.classList.add('show'); }
   function closeModal(id) { const el = $(id); if (el) el.classList.remove('show'); }
@@ -326,7 +490,8 @@
       affirmation: ((($('affirmation') || {}).value || '').trim()) || DEFAULT_AFFIRMATION,
       meds: normalizeMeds({
         morning: !!( $('meds-morning') && $('meds-morning').checked ),
-        afternoon: !!( $('meds-afternoon') && $('meds-afternoon').checked )
+        afternoon: !!( $('meds-afternoon') && $('meds-afternoon').checked ),
+        supplements: readSupplementChecks()
       }),
       savedAt: new Date().toISOString()
     };
@@ -512,6 +677,7 @@
     const meds = normalizeMeds(day.meds);
     if ($('meds-morning')) $('meds-morning').checked = meds.morning;
     if ($('meds-afternoon')) $('meds-afternoon').checked = meds.afternoon;
+    renderSupplementChecks(meds.supplements);
     updateTodayTagline();
   }
 
@@ -579,7 +745,7 @@
 
   function scheduleSave() {
     dayDirty = true;
-    setSaveStatus('Saving…');
+    setSaveStatus('saving', 'Saving…');
     clearTimeout(saveTimer);
     saveTimer = setTimeout(saveDay, 500);
   }
@@ -599,6 +765,7 @@
     if (normalizeTop3(data.top3).some(function (t) { return t.text && String(t.text).trim(); })) return true;
     if (Array.isArray(data.micro) && data.micro.some(function (m) { return m && String(m.text || '').trim(); })) return true;
     if (data.meds && (data.meds.morning || data.meds.afternoon)) return true;
+    if (data.meds && data.meds.supplements && Object.keys(data.meds.supplements).some(function (key) { return data.meds.supplements[key]; })) return true;
     return false;
   }
 
@@ -856,13 +1023,15 @@
     all[key] = data;
     saveJson('task-days', all);
     showAffirmation(data.affirmation);
-    setSaveStatus('Saved');
+    const seq = ++saveSeq;
+    pendingCloudSave = { key: key, data: data, seq: seq };
+    setSaveStatus('saving', 'Saving…');
     renderEnergyCalendar();
     renderWinsThisWeek();
     renderWeeklySummary();
     renderHistory();
     scheduleSyncPush();
-    cloudUpsertDay(key, data);
+    cloudUpsertDay(key, data, function (ok) { finishCloudSave(seq, ok); });
   }
 
   function checkCarryOver() {
@@ -2690,7 +2859,8 @@
     'tinystarts-sync-token',
     'tinystarts-sync-enabled',
     'tinystarts-user-id',
-    'user-affirmations'
+    'user-affirmations',
+    'supplement-catalog'
   ];
 
   function clearLocalPersonalData() {
@@ -2872,14 +3042,25 @@
     clearSupabaseStorage();
   }
 
-  function cloudUpsertDay(key, data) {
-    if (!currentUser || !initSupabase()) return;
+  function cloudUpsertDay(key, data, done) {
+    if (!currentUser || !initSupabase() || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
+      if (done) done(false);
+      return;
+    }
     sb.from('task_days').upsert({ user_id: currentUser.id, date: key, data: data })
       .then(function (res) {
-        if (res.error) console.warn('Cloud day save failed:', res.error.message);
-        else logAudit('save_day', { date: key });
+        if (res.error) {
+          console.warn('Cloud day save failed:', res.error.message);
+          if (done) done(false);
+        } else {
+          logAudit('save_day', { date: key });
+          if (done) done(true);
+        }
       })
-      .catch(function (err) { console.warn('Cloud day save failed:', err); });
+      .catch(function (err) {
+        console.warn('Cloud day save failed:', err);
+        if (done) done(false);
+      });
   }
 
   function cloudDeleteDay(key) {
@@ -3216,6 +3397,7 @@
       closeAccountMenu();
       updateAccountUI();
       fillSyncForm();
+      renderSupplementSettings();
       openModal('settingsModal');
     });
     if ($('accountBtn')) $('accountBtn').addEventListener('click', function (e) {
@@ -3257,6 +3439,13 @@
     });
     if ($('meds-morning')) $('meds-morning').addEventListener('change', scheduleSave);
     if ($('meds-afternoon')) $('meds-afternoon').addEventListener('change', scheduleSave);
+    if ($('supplementList')) $('supplementList').addEventListener('change', function (e) {
+      if (e.target && e.target.dataset && e.target.dataset.supplement) scheduleSave();
+    });
+    if ($('addSupplementBtn')) $('addSupplementBtn').addEventListener('click', function () {
+      addSupplement($('newSupplementName') && $('newSupplementName').value);
+    });
+    window.addEventListener('online', retryCloudSave);
     if ($('addAnotherTask')) $('addAnotherTask').addEventListener('click', revealAnotherTask);
     $('brainDump').addEventListener('input', function () { renderBrainLines(); scheduleSave(); });
     $('gotDone').addEventListener('input', scheduleSave);

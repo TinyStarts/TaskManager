@@ -481,8 +481,13 @@
 
 
   .today-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-  .saved-indicator { margin: 0; color: var(--muted); font-size: 0.8rem; min-height: 1.2em; opacity: 0; transition: opacity 0.3s ease; }
-  .saved-indicator.show { opacity: 1; }
+  .saved-indicator { margin: 0; color: var(--muted); font-size: 0.8rem; min-height: 1.2em; }
+  #saveStatus { padding: 0; margin: 4px 0 0; background: transparent; border-radius: 0; font-size: 0.8rem; color: var(--muted); }
+  #saveStatus[data-state="saved"] { color: var(--accent); }
+  #saveStatus[data-state="error"] { color: var(--muted); }
+  .supplement-label { margin-top: 12px; }
+  .supplement-setting { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .supplement-setting input { flex: 1; min-width: 0; }
   .card.compact { padding: 14px 16px; }
   .card.compact h3 { margin-bottom: 4px; font-size: 0.98rem; }
   .card.compact textarea { min-height: 76px; }
