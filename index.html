@@ -322,6 +322,7 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
       <p class="hint" id="exportStatus" role="status"></p>
       <div class="btn-row">
         <button type="button" class="btn" id="exportBtn">Download</button>
+        <button type="button" class="btn secondary" id="exportCalendarBtn">Export calendar (.ics)</button>
         <button type="button" class="btn secondary" id="exportShareBtn" hidden>Share</button>
         <button type="button" class="btn secondary" id="importBtn">Restore from backup</button>
         <input type="file" id="importFile" accept="application/json,.json" hidden>
@@ -439,6 +440,7 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
     <label class="field check-field" for="newItemAllDay">
       <input type="checkbox" id="newItemAllDay" name="newItemAllDay"> All-day
     </label>
+    <div id="eventCalendarActions" class="cal-actions-slot" hidden></div>
     <button type="button" class="btn" id="confirmAddBtn">Save event</button>
     <button type="button" class="btn secondary" id="cancelAddBtn">Cancel</button>
     <button type="button" class="btn danger" id="deleteItemBtn" hidden>Delete event</button>

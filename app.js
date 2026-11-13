@@ -1065,6 +1065,7 @@
       del.setAttribute('aria-label', 'Delete event ' + (index + 1));
       del.addEventListener('click', function () { deletePlannerItem(key, index); });
       row.appendChild(open);
+      row.appendChild(makeCalendarActions(key, index, 'day-cal'));
       row.appendChild(del);
       wrap.appendChild(row);
     });
@@ -2376,7 +2377,12 @@
         chip.id = 'allday-event-' + key + '-' + realIndex;
         chip.textContent = item.text || 'Event';
         chip.addEventListener('click', function (ev) { ev.stopPropagation(); openEditItem(key, realIndex); });
-        cell.appendChild(chip);
+        const holder = document.createElement('div');
+        holder.className = 'all-day-item';
+        holder.addEventListener('click', function (ev) { ev.stopPropagation(); });
+        holder.appendChild(chip);
+        holder.appendChild(makeCalendarActions(key, realIndex, 'allday-cal'));
+        cell.appendChild(holder);
       });
       cell.addEventListener('click', function () { openAddModal({ date: key, allDay: true }); });
       allDay.appendChild(cell);
@@ -2480,6 +2486,7 @@
     title.textContent = item.text || 'Event';
     block.appendChild(time);
     block.appendChild(title);
+    block.appendChild(makeCalendarActions(key, index, 'plan-cal'));
     const handle = document.createElement('div');
     handle.className = 'resize-handle';
     handle.dataset.resize = '1';
@@ -2623,7 +2630,12 @@
         ev.className = 'month-event event-' + safeEventType(item.type);
         ev.textContent = (item.allDay ? '' : (item.start ? item.start + ' ' : '')) + (item.text || 'Event');
         ev.addEventListener('click', function (e) { e.stopPropagation(); openEditItem(key, realIndex); });
-        cell.appendChild(ev);
+        const holder = document.createElement('div');
+        holder.className = 'month-event-row';
+        holder.addEventListener('click', function (e) { e.stopPropagation(); });
+        holder.appendChild(ev);
+        holder.appendChild(makeCalendarActions(key, realIndex, 'month-cal'));
+        cell.appendChild(holder);
       });
       if (items.length > 3) {
         const more = document.createElement('button');
@@ -2754,6 +2766,7 @@
   function openAddModal(opts) {
     opts = opts || {};
     editingPlanner = null;
+    renderModalCalendarActions();
     const date = opts.date || dateKey(plannerDate);
     $('addItemTitle').textContent = 'Add event';
     $('confirmAddBtn').textContent = 'Save event';
@@ -2793,6 +2806,7 @@
     if ($('newItemEnd')) $('newItemEnd').disabled = !!item.allDay;
     plannerDate = new Date(key + 'T12:00:00');
     openModal('addItemModal');
+    renderModalCalendarActions();
     setTimeout(function () { $('newItemText').focus(); }, 50);
   }
 
@@ -2843,6 +2857,213 @@
       dates = date + '/' + dateKey(next).replace(/-/g, '');
     }
     window.open('https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + title + '&dates=' + dates + '&details=' + details, '_blank', 'noopener');
+  }
+
+  function closeCalMenus(except) {
+    document.querySelectorAll('.cal-menu').forEach(function (menu) {
+      if (except && menu === except) return;
+      menu.hidden = true;
+      const btn = document.querySelector('[aria-controls="' + menu.id + '"]');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    });
+  }
+
+  function makeCalendarActions(key, index, idPrefix) {
+    const wrap = document.createElement('div');
+    wrap.className = 'cal-actions';
+    const google = document.createElement('button');
+    google.type = 'button';
+    google.className = 'icon-btn cal-google';
+    google.id = idPrefix + '-google-' + key + '-' + index;
+    google.textContent = '📅';
+    google.setAttribute('aria-label', 'Add to Google Calendar');
+    const more = document.createElement('button');
+    more.type = 'button';
+    more.className = 'icon-btn cal-more';
+    more.id = idPrefix + '-more-' + key + '-' + index;
+    more.textContent = '▾';
+    more.setAttribute('aria-label', 'More ways to save this event');
+    more.setAttribute('aria-haspopup', 'menu');
+    more.setAttribute('aria-expanded', 'false');
+    const menu = document.createElement('div');
+    menu.className = 'cal-menu';
+    menu.id = idPrefix + '-menu-' + key + '-' + index;
+    menu.hidden = true;
+    menu.setAttribute('role', 'menu');
+    more.setAttribute('aria-controls', menu.id);
+    const ics = document.createElement('button');
+    ics.type = 'button';
+    ics.className = 'btn secondary';
+    ics.id = idPrefix + '-ics-' + key + '-' + index;
+    ics.setAttribute('role', 'menuitem');
+    ics.textContent = 'Export (.ics)';
+    google.addEventListener('click', function () {
+      closeCalMenus();
+      addToGoogleCalendar(key, index);
+    });
+    more.addEventListener('click', function () {
+      const willOpen = menu.hidden;
+      closeCalMenus(willOpen ? menu : null);
+      menu.hidden = !willOpen;
+      more.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    });
+    ics.addEventListener('click', function () {
+      closeCalMenus();
+      downloadEventIcs(key, index);
+    });
+    wrap.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+    wrap.addEventListener('click', function (e) { e.stopPropagation(); });
+    menu.appendChild(ics);
+    wrap.appendChild(google);
+    wrap.appendChild(more);
+    wrap.appendChild(menu);
+    return wrap;
+  }
+
+  function renderModalCalendarActions() {
+    const slot = $('eventCalendarActions');
+    if (!slot) return;
+    slot.innerHTML = '';
+    if (!editingPlanner) {
+      slot.hidden = true;
+      return;
+    }
+    slot.hidden = false;
+    slot.appendChild(makeCalendarActions(editingPlanner.key, editingPlanner.index, 'modal-cal'));
+  }
+
+  function icsEscape(value) {
+    return String(value == null ? '' : value)
+      .replace(/\\/g, '\\\\')
+      .replace(/\r\n|\r|\n/g, '\\n')
+      .replace(/;/g, '\\;')
+      .replace(/,/g, '\\,');
+  }
+
+  function foldIcsLine(line) {
+    const encoder = typeof TextEncoder !== 'undefined' ? new TextEncoder() : null;
+    let out = '';
+    let octets = 0;
+    const chars = Array.from(String(line));
+    for (let i = 0; i < chars.length; i++) {
+      const ch = chars[i];
+      const size = encoder ? encoder.encode(ch).length : ch.length;
+      if (octets + size > 75) {
+        out += '\r\n ';
+        octets = 1;
+      }
+      out += ch;
+      octets += size;
+    }
+    return out;
+  }
+
+  function icsStamp(date) {
+    const d = date || new Date();
+    return d.getUTCFullYear() + pad2(d.getUTCMonth() + 1) + pad2(d.getUTCDate()) + 'T' +
+      pad2(d.getUTCHours()) + pad2(d.getUTCMinutes()) + pad2(d.getUTCSeconds()) + 'Z';
+  }
+
+  function icsClock(value) {
+    const t = parseTime(value);
+    if (!t) return '090000';
+    return pad2(t.h) + pad2(t.m) + '00';
+  }
+
+  function nextDateKey(key) {
+    const d = parseDateKey(key);
+    if (!d) return key;
+    d.setDate(d.getDate() + 1);
+    return dateKey(d);
+  }
+
+  function eventUid(key, item) {
+    const basis = [key, item && item.allDay ? 'day' : 'time', (item && item.start) || '', (item && item.end) || '', (item && item.text) || ''].join('|');
+    return 'tinystarts-' + hashString(basis).toString(16) + '@tinystarts.app';
+  }
+
+  function veventLines(key, item) {
+    const summary = icsEscape(((item && item.text) || '').trim() || 'Event');
+    const lines = [
+      'BEGIN:VEVENT',
+      'UID:' + eventUid(key, item),
+      'DTSTAMP:' + icsStamp(new Date()),
+      'SUMMARY:' + summary,
+      'DESCRIPTION:' + icsEscape('From TinyStarts')
+    ];
+    const allDay = !!(item && (item.allDay || !item.start));
+    if (allDay) {
+      lines.push('DTSTART;VALUE=DATE:' + key.replace(/-/g, ''));
+      lines.push('DTEND;VALUE=DATE:' + nextDateKey(key).replace(/-/g, ''));
+    } else {
+      const startTime = eventStart(item);
+      let endTime = eventEnd(item);
+      let endKey = key;
+      if (minutesOf(endTime) <= minutesOf(startTime)) endKey = nextDateKey(key);
+      lines.push('DTSTART:' + key.replace(/-/g, '') + 'T' + icsClock(startTime));
+      lines.push('DTEND:' + endKey.replace(/-/g, '') + 'T' + icsClock(endTime));
+    }
+    lines.push('END:VEVENT');
+    return lines;
+  }
+
+  function buildCalendarIcs(entries) {
+    const lines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//TinyStarts//Planner//EN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH'
+    ];
+    entries.forEach(function (entry) {
+      veventLines(entry.key, entry.item).forEach(function (line) { lines.push(line); });
+    });
+    lines.push('END:VCALENDAR');
+    return lines.map(foldIcsLine).join('\r\n') + '\r\n';
+  }
+
+  function downloadEventIcs(key, index) {
+    const item = loadPlannerItems(key)[index];
+    if (!item) return;
+    downloadFile(new File([buildCalendarIcs([{ key: key, item: item }])], 'tinystarts-event-' + key + '.ics', { type: 'text/calendar' }));
+    showToast('Calendar file downloaded', 'success');
+  }
+
+  async function collectPlannerMap() {
+    const plans = getPlannerMap();
+    if (currentUser && initSupabase() && (typeof navigator === 'undefined' || navigator.onLine !== false)) {
+      try {
+        const res = await sb.from('planner_entries').select('date, items').eq('user_id', currentUser.id);
+        if (!res.error && res.data) {
+          res.data.forEach(function (row) {
+            if (!row || !parseDateKey(row.date)) return;
+            plans[row.date] = pickPlanner(plans[row.date], row.items);
+          });
+        }
+      } catch (err) {}
+    }
+    return plans;
+  }
+
+  async function downloadCalendarExport() {
+    const plans = await collectPlannerMap();
+    const entries = [];
+    Object.keys(plans).filter(function (key) { return !!parseDateKey(key); }).sort().forEach(function (key) {
+      visiblePlannerItems(plans[key]).forEach(function (item) {
+        entries.push({ key: key, item: item });
+      });
+    });
+    if (!entries.length) {
+      setExportStatus('No calendar entries yet.');
+      return;
+    }
+    setExportStatus('');
+    downloadFile(new File(
+      [buildCalendarIcs(entries)],
+      'tinystarts-calendar-' + todayKey() + '.ics',
+      { type: 'text/calendar' }
+    ));
+    showToast('Calendar downloaded', 'success');
   }
 
   function copyDayToTomorrow() {
@@ -3849,6 +4070,7 @@
       toggleAccountMenu();
     });
     document.addEventListener('click', function (e) {
+      if (!e.target.closest || !e.target.closest('.cal-actions')) closeCalMenus();
       const menu = $('accountMenu');
       const btn = $('accountBtn');
       if (!menu || menu.hidden) return;
@@ -3965,6 +4187,7 @@
     });
     $('copyTomorrowBtn').addEventListener('click', copyDayToTomorrow);
     $('exportBtn').addEventListener('click', function () { downloadExport(); });
+    if ($('exportCalendarBtn')) $('exportCalendarBtn').addEventListener('click', function () { downloadCalendarExport(); });
     initExportShare();
     if ($('exportShareBtn')) $('exportShareBtn').addEventListener('click', function () { shareExport(); });
     $('exportBtn2').addEventListener('click', exportData);
@@ -4253,7 +4476,7 @@
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js?v=9').catch(function (err) {
+    navigator.serviceWorker.register('sw.js?v=10').catch(function (err) {
       console.warn('Service worker not registered:', err);
     });
   });
