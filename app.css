@@ -423,8 +423,9 @@
     background: var(--accent-soft); color: var(--ink);
     line-height: 1.25;
   }
-  .event-block .ev-time { display: block; font-size: 0.68rem; opacity: 0.8; font-weight: 550; }
-  .event-block .ev-title { font-weight: 650; }
+  .event-block { overflow: visible; }
+  .event-block .ev-time { display: block; font-size: 0.68rem; opacity: 0.8; font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .event-block .ev-title { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .event-block.done .ev-title { text-decoration: line-through; opacity: 0.7; }
   .event-block.event-work { background: #dceae4; border-color: #3f6f62; }
   .event-block.event-personal { background: #e7eef8; border-color: #4c6a96; }
@@ -434,6 +435,19 @@
   [data-theme="dark"] .event-block.event-personal { background: #2a3340; border-color: #8aa4c8; }
   [data-theme="dark"] .event-block.event-health { background: #3a2d2a; border-color: #e08b82; }
   [data-theme="dark"] .event-block.event-errand { background: #3a3628; border-color: #d4c07a; }
+  .cal-actions { display: inline-flex; align-items: center; position: relative; flex: none; }
+  .cal-actions .icon-btn { background: var(--card); }
+  .cal-menu {
+    position: absolute; top: calc(100% + 4px); right: 0; z-index: 30;
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: var(--shadow); padding: 4px; min-width: 168px;
+  }
+  .cal-menu button { width: 100%; min-height: 44px; text-align: left; justify-content: flex-start; }
+  .event-block .cal-actions { position: absolute; top: 2px; right: 2px; }
+  .event-block .ev-title, .event-block .ev-time { padding-right: 96px; }
+  .all-day-item, .month-event-row { display: flex; align-items: center; gap: 4px; max-width: 100%; }
+  .all-day-item .all-day-chip, .month-event-row .month-event { flex: 1; min-width: 0; }
+  .cal-actions-slot { margin: 8px 0 12px; }
   .event-block .resize-handle {
     position: absolute; left: 8px; right: 8px; bottom: 0; height: 10px; cursor: ns-resize;
   }
