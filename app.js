@@ -4253,7 +4253,7 @@
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js?v=8').catch(function (err) {
+    navigator.serviceWorker.register('sw.js?v=9').catch(function (err) {
       console.warn('Service worker not registered:', err);
     });
   });
