@@ -73,7 +73,90 @@
     'Today’s version of me deserves a gentle start.',
     'I can put one thing where I will see it tomorrow.',
     'I am allowed to be both capable and tired.',
-    'Small care for myself makes the next task lighter.'
+    'Small care for myself makes the next task lighter.',
+    'I can begin with the part that is already in front of me.',
+    'A small start counts even if the rest stays messy.',
+    'I can let today be lighter than my worry about it.',
+    'I don’t have to solve my whole life to open one tab.',
+    'Coming back is a skill, and I am practicing it.',
+    'I can do this in short bursts and still be proud.',
+    'My brain can wander and I can gently bring it back.',
+    'I can make the task fit the energy I actually have.',
+    'It is okay to need a list. Lists are a kindness.',
+    'I can stop at a reasonable place and call that enough.',
+    'I can choose a tiny win and let it be the whole plan.',
+    'I am allowed to move slowly without falling behind myself.',
+    'I can put the next step on paper so my head can rest.',
+    'Forgetting a step does not undo the steps I finished.',
+    'I can ask the task to be smaller until I can touch it.',
+    'A restart is not a failure. It is another beginning.',
+    'I can keep the promise very small and still keep it.',
+    'I don’t have to be in the mood to take the first minute.',
+    'I can leave a trail of notes for the me who comes back.',
+    'Today can be a soft day and still be a real day.',
+    'I can do one kind thing for my future self and stop there.',
+    'My attention is precious. I can spend a little of it here.',
+    'I can work beside the noise in my head without fighting it.',
+    'I am allowed to use tools, timers, and reminders.',
+    'I can change the order. The order is not a moral test.',
+    'I can sit down for two minutes and see what happens.',
+    'The unfinished pile does not get to name who I am.',
+    'I can drink water, then do the next visible thing.',
+    'I can be new at this and still be doing it right.',
+    'I can let “later” have a time, not a fog.',
+    'I can close one loop and leave the others for tomorrow.',
+    'I don’t have to earn the right to start over.',
+    'A wobbly plan is still a plan I can follow.',
+    'I can notice shame and set it down for this step.',
+    'I can make the environment easier instead of pushing harder.',
+    'I can do the boring part for five minutes and then reassess.',
+    'I am allowed to need more breaks than the schedule expected.',
+    'I can return to a half-done thing without a speech.',
+    'My effort is real even when the result is quiet.',
+    'I can choose the version that fits in this hour.',
+    'I can write it badly and fix the shape later.',
+    'I don’t have to hold every detail in my head.',
+    'I can trust the page to remember for me.',
+    'Starting in the middle is allowed.',
+    'I can be kind to the part of me that is overwhelmed.',
+    'I can take the task out of my head and onto the list.',
+    'One clear next action is a gift I can give myself.',
+    'I can stop comparing this morning to someone else’s.',
+    'I am allowed to do less and still be a person who tries.',
+    'I can let interest lead for a few minutes, then return.',
+    'A pause to stretch still counts as taking care of the work.',
+    'I can name what “done for now” looks like.',
+    'I don’t have to finish to deserve rest tonight.',
+    'I can make the first move so small it feels almost silly.',
+    'Silly and started is better than grand and stuck.',
+    'I can ask for a body double and not explain myself.',
+    'I can keep the lights low and the task small.',
+    'I can forgive the delay and begin from here.',
+    'Here is a fine place to begin.',
+    'I can let the timer hold the edge so I don’t have to.',
+    'I can put my phone in another room and call that a strategy.',
+    'I can do the easy version and still tell the truth.',
+    'I can leave a sentence unfinished and come back to it.',
+    'Coming back is the skill. I am allowed to use it.',
+    'I can treat focus like a visitor, not a test I can fail.',
+    'I can stack one tiny action on top of another.',
+    'I can stop when I said I would and trust that I will return.',
+    'I can be proud of a day that was mostly maintenance.',
+    'Maintenance is care. Care counts.',
+    'I can choose water, a stretch, and then the first click.',
+    'I can let the plan be a suggestion, not a verdict.',
+    'I can rewrite the plan in kinder words.',
+    'Kinder words still get the work done.',
+    'I can notice “I should” and trade it for “I could start with”.',
+    'I can start with the visible object, not the whole project.',
+    'The whole project can wait while I touch one piece.',
+    'I can keep my promises pocket-sized.',
+    'Pocket-sized promises are easier to keep, and keeping them matters.',
+    'I can end the session with a note about where I stopped.',
+    'A note about where I stopped is a bridge, not a confession.',
+    'I can be on my own side while the list is long.',
+    'The list being long does not mean I am behind as a person.',
+    'I can do the next right-sized thing and then look up.',
   ];
   const STUCK_HELPS = [
     'Shrink it to the very first 2-minute step and start a 5-minute timer.',
@@ -489,7 +572,7 @@
       gotDone: (($('gotDone') || {}).value || '').trim(),
       carryOver: (($('carryOver') || {}).value || '').trim(),
       tomorrow1: (($('tomorrow1') || {}).value || '').trim(),
-      affirmation: ((($('affirmation') || {}).value || '').trim()) || DEFAULT_AFFIRMATION,
+      affirmation: affirmationForSave(),
       meds: normalizeMeds({
         morning: !!( $('meds-morning') && $('meds-morning').checked ),
         afternoon: !!( $('meds-afternoon') && $('meds-afternoon').checked ),
@@ -839,7 +922,7 @@
 
   function fillDayForm(data) {
     const day = data || {};
-    const aff = (day.affirmation && String(day.affirmation).trim()) || dailyAffirmation(activeKey());
+    const aff = (day.affirmation && String(day.affirmation).trim()) || '';
     showAffirmation(aff);
     document.querySelectorAll('#energyBtns button').forEach(function (btn) {
       const on = btn.dataset.level === day.energy;
@@ -891,8 +974,12 @@
     const title = $('top3Title');
     if (title) title.textContent = key === todayKey() ? 'Today’s Top 3' : 'Top 3';
     const jump = $('jumpTodayBtn');
-    if (jump) jump.hidden = key === todayKey();
+    const pill = $('todayPill');
+    const onToday = key === todayKey();
+    if (jump) jump.hidden = onToday;
+    if (pill) pill.hidden = !onToday;
     updateTodayTagline();
+    updateDayTrophies();
   }
 
   function updateTodayTagline() {
@@ -924,6 +1011,7 @@
   }
 
   function scheduleSave() {
+    updateDayTrophies();
     dayDirty = true;
     setSaveStatus('saving', 'Saving…');
     clearTimeout(saveTimer);
@@ -991,6 +1079,22 @@
       li.id = 'brain-line-' + (index + 1);
       const span = document.createElement('span');
       span.textContent = line.trim();
+      const actions = document.createElement('div');
+      actions.className = 'brain-line-actions';
+      const toTop = document.createElement('button');
+      toTop.type = 'button';
+      toTop.className = 'btn ghost';
+      toTop.id = 'brain-line-top3-' + (index + 1);
+      toTop.textContent = '→ Top 3';
+      toTop.setAttribute('aria-label', 'Send line ' + (index + 1) + ' to Top 3');
+      toTop.addEventListener('click', function () { sendBrainLineToTop3(line.trim()); });
+      const toPlan = document.createElement('button');
+      toPlan.type = 'button';
+      toPlan.className = 'btn ghost';
+      toPlan.id = 'brain-line-plan-' + (index + 1);
+      toPlan.textContent = '→ Planner';
+      toPlan.setAttribute('aria-label', 'Add line ' + (index + 1) + ' to the planner');
+      toPlan.addEventListener('click', function () { sendBrainLineToPlanner(line.trim()); });
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'icon-text';
@@ -998,8 +1102,11 @@
       btn.textContent = 'Delete';
       btn.setAttribute('aria-label', 'Delete brain dump line ' + (index + 1));
       btn.addEventListener('click', function () { deleteBrainLine(index); });
+      actions.appendChild(toTop);
+      actions.appendChild(toPlan);
+      actions.appendChild(btn);
       li.appendChild(span);
-      li.appendChild(btn);
+      li.appendChild(actions);
       list.appendChild(li);
     });
   }
@@ -1399,36 +1506,37 @@
   }
 
   function dailyAffirmation(key) {
-    const pool = affirmationPool();
+    const pool = AFFIRMATIONS.length ? AFFIRMATIONS : [DEFAULT_AFFIRMATION];
     return pool[hashString('tinystarts|' + (key || todayKey())) % pool.length];
   }
 
+  function affirmationForSave() {
+    const typed = (($('affirmation') || {}).value || '').trim();
+    if (typed) return typed;
+    const existing = getDayMap()[activeKey()];
+    if (existing && !existing.deleted && existing.affirmation) return String(existing.affirmation).trim();
+    return '';
+  }
+
   function showAffirmation(text) {
-    const value = String(text || '').trim() || dailyAffirmation(activeKey());
-    if ($('affirmation')) $('affirmation').value = value;
-    if ($('affirmationText')) $('affirmationText').textContent = value;
-    const btn = $('affirmationSaveBtn');
+    const stored = String(text || '').trim();
+    const shown = stored || dailyAffirmation(activeKey());
+    if ($('affirmation')) $('affirmation').value = stored;
+    if ($('affirmationText')) $('affirmationText').textContent = shown;
+    const btn = $('affirmationUseBtn');
     if (btn) {
-      const saved = visibleAffirmations(getAffirmationStore()).some(function (item) {
-        return item.text.trim().toLowerCase() === value.toLowerCase();
-      });
-      btn.setAttribute('aria-pressed', saved ? 'true' : 'false');
-      btn.textContent = saved ? '♥ Saved' : '♡ Save';
+      btn.textContent = stored ? 'Using this' : 'Use it';
+      btn.setAttribute('aria-pressed', stored ? 'true' : 'false');
     }
   }
 
-  function shuffleAffirmation() {
-    const pool = affirmationPool();
-    const current = (($('affirmation') && $('affirmation').value) || '').trim();
-    let next = pool[Math.floor(Math.random() * pool.length)];
-    let guard = 0;
-    while (pool.length > 1 && next === current && guard < 12) {
-      next = pool[Math.floor(Math.random() * pool.length)];
-      guard++;
-    }
-    showAffirmation(next);
+  function useShownAffirmation() {
+    const shown = (($('affirmationText') && $('affirmationText').textContent) || '').trim();
+    if (!shown) return;
+    if ($('affirmation')) $('affirmation').value = shown;
     dayDirty = true;
     saveDay();
+    showToast('Using this for today.', 'success');
   }
 
   function renderMyAffirmations() {
@@ -1517,7 +1625,10 @@
     }
     input.value = '';
     persistAffirmationStore(store);
-    showToast('Saved to your list', 'success');
+    if ($('affirmation')) $('affirmation').value = text;
+    dayDirty = true;
+    saveDay();
+    showToast('Saved, and using it today.', 'success');
   }
 
   function deleteMyAffirmation(id) {
@@ -1535,24 +1646,58 @@
     showToast('Affirmation removed', 'info', 8000, true);
   }
 
-  function heartCurrentAffirmation() {
-    const text = (($('affirmationText') && $('affirmationText').textContent) || '').trim();
-    if (!text) return;
-    const store = getAffirmationStore();
-    if (visibleAffirmations(store).some(function (item) { return item.text.trim().toLowerCase() === text.toLowerCase(); })) {
-      showToast('Already in your list', 'info');
-      showAffirmation(text);
-      return;
+  function sendBrainLineToTop3(text) {
+    const value = String(text || '').trim();
+    if (!value) return;
+    for (let n = 1; n <= 3; n++) {
+      const input = $('top3-text-' + n);
+      if (input && !String(input.value || '').trim()) {
+        input.value = value;
+        applyEnergySlots();
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        showToast('Added to Top 3.', 'success');
+        return;
+      }
     }
-    store.items.push({ id: 'aff-' + Date.now().toString(36), text: text, savedAt: new Date().toISOString(), deletedAt: null });
-    persistAffirmationStore(store);
-    showToast('Saved to your list', 'success');
+    showToast('Top 3 is full for now. You can edit one when you want.', 'info');
   }
 
-  function setMixOwn(on) {
-    const store = getAffirmationStore();
-    store.mixOwn = !!on;
-    persistAffirmationStore(store);
+  function sendBrainLineToPlanner(text) {
+    const value = String(text || '').trim();
+    if (!value) return;
+    const key = activeKey();
+    const slot = nextFreeSlot(key, 30);
+    const items = loadPlannerItems(key);
+    items.push({ text: value, done: false, start: slot.start, end: slot.end, type: 'personal', allDay: false });
+    savePlannerItems(key, items);
+    if (typeof renderPlanner === 'function') renderPlanner();
+    showToast('Added to the planner.', 'success');
+  }
+
+  function setTrophy(name, on) {
+    const trophy = $('trophy-' + name);
+    const status = $('status-' + name);
+    if (trophy) trophy.hidden = !on;
+    if (status) status.textContent = on ? '' : 'not yet';
+  }
+
+  function updateDayTrophies() {
+    const energyOn = !!document.querySelector('#energyBtns button.active');
+    const medsOn = !!($('meds-morning') && $('meds-morning').checked) && !!($('meds-afternoon') && $('meds-afternoon').checked);
+    const dumpOn = String(($('brainDump') && $('brainDump').value) || '').split('\n').some(function (line) { return !!line.trim(); });
+    let filled = 0;
+    for (let n = 1; n <= 3; n++) {
+      const input = $('top3-text-' + n);
+      if (input && String(input.value || '').trim()) filled++;
+    }
+    const topOn = filled === 3;
+    setTrophy('energy', energyOn);
+    setTrophy('meds', medsOn);
+    setTrophy('brain', dumpOn);
+    setTrophy('top3', topOn);
+    const done = [energyOn, medsOn, dumpOn, topOn].filter(Boolean).length;
+    const summary = $('dayProgress');
+    if (summary) summary.textContent = done + ' of 4 done';
   }
 
   function suggestTop3() {
@@ -4091,12 +4236,8 @@
       applyEnergySlots();
       scheduleSave();
     });
-    if ($('affirmationShuffleBtn')) $('affirmationShuffleBtn').addEventListener('click', shuffleAffirmation);
-    if ($('affirmationSaveBtn')) $('affirmationSaveBtn').addEventListener('click', heartCurrentAffirmation);
+    if ($('affirmationUseBtn')) $('affirmationUseBtn').addEventListener('click', useShownAffirmation);
     if ($('myAffirmationAddBtn')) $('myAffirmationAddBtn').addEventListener('click', addOrUpdateMyAffirmation);
-    if ($('affirmationMixToggle')) $('affirmationMixToggle').addEventListener('change', function (ev) {
-      setMixOwn(ev.target.checked);
-    });
     if ($('myAffirmationInput')) $('myAffirmationInput').addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -4202,6 +4343,29 @@
     $('historySearch').addEventListener('input', renderHistory);
     $('newItemText').addEventListener('keydown', function (e) { if (e.key === 'Enter') confirmAddItem(); });
     $('winInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('confirmWinBtn').click(); });
+    const todayView = $('todayView');
+    if (todayView) {
+      let swipeX = null;
+      let swipeY = null;
+      todayView.addEventListener('touchstart', function (e) {
+        if (!e.touches || !e.touches[0]) return;
+        const t = e.target;
+        if (t && t.closest && t.closest('input, textarea, button, a, select, label')) return;
+        swipeX = e.touches[0].clientX;
+        swipeY = e.touches[0].clientY;
+      }, { passive: true });
+      todayView.addEventListener('touchend', function (e) {
+        if (swipeX == null || !e.changedTouches || !e.changedTouches[0]) return;
+        const dx = e.changedTouches[0].clientX - swipeX;
+        const dy = e.changedTouches[0].clientY - swipeY;
+        swipeX = null;
+        swipeY = null;
+        if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy)) return;
+        const base = parseDateKey(activeKey()) || new Date();
+        base.setDate(base.getDate() + (dx < 0 ? 1 : -1));
+        openDay(dateKey(base), true);
+      }, { passive: true });
+    }
     if ($('prevDayBtn')) $('prevDayBtn').addEventListener('click', function () {
       const base = parseDateKey(activeKey()) || new Date();
       base.setDate(base.getDate() - 1);
@@ -4319,7 +4483,7 @@
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js?v=11').catch(function (err) {
+    navigator.serviceWorker.register('sw.js?v=12').catch(function (err) {
       console.warn('Service worker not registered:', err);
     });
   });
