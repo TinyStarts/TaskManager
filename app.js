@@ -111,6 +111,8 @@
   ];
 
   const AUTH_EMAIL_DOMAIN = 'users.tinystarts.app';
+  const SESSION_IDLE_MS = 60 * 60 * 1000;
+  const ACTIVITY_STORAGE_KEY = 'tinystarts-last-activity';
   const SUPABASE_URL = 'https://wqbssirqnbbeftgskktb.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxYnNzaXJxbmJiZWZ0Z3Nra3RiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyNzcxODQsImV4cCI6MjEwNzg1MzE4NH0.XsHIZ5kZTSv10UGZwEy-4Urv-GTUyb23-BOeRYi1u8Q';
 
@@ -2910,6 +2912,7 @@
   }
 
   async function enterApp(user, options) {
+    writeLastActivity(Date.now());
     if (!localDataBelongsTo(user)) clearLocalPersonalData();
     safeSet('tinystarts-user-id', user.id);
     currentUser = user;
@@ -3026,20 +3029,81 @@
     const user = currentUser;
     const client = sb;
     currentUser = null;
+    document.documentElement.dataset.gate = 'checking';
+    if (client) {
+      if (user) {
+        try {
+          await client.from('audit_log').insert({ user_id: user.id, action: 'logout', details: {} });
+        } catch (err) {}
+      }
+      try { await client.auth.signOut(); } catch (err) {}
+    }
     clearSupabaseStorage();
     clearLocalPersonalData();
+    try { localStorage.removeItem(ACTIVITY_STORAGE_KEY); } catch (err) {}
+    delete memoryStore[ACTIVITY_STORAGE_KEY];
     blankAppDom();
     closeModal('settingsModal');
     closeModal('addItemModal');
     closeModal('winModal');
     updateAccountUI();
     showLogin();
-    if (!client || !user) return;
+  }
+
+  let sessionExpiring = false;
+
+  function readLastActivity() {
+    const parsed = parseInt(safeGet(ACTIVITY_STORAGE_KEY, ''), 10);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function writeLastActivity(time) {
+    safeSet(ACTIVITY_STORAGE_KEY, String(time || Date.now()));
+  }
+
+  function activityIsStale() {
+    const last = readLastActivity();
+    if (!last) return true;
+    return Date.now() - last >= SESSION_IDLE_MS;
+  }
+
+  function noteActivity() {
+    if (document.documentElement.dataset.gate !== 'signed-in') return;
+    const now = Date.now();
+    const last = readLastActivity();
+    if (last && now - last < 15000) return;
+    writeLastActivity(now);
+  }
+
+  async function clearAppCaches() {
+    if (typeof caches === 'undefined' || !caches.keys) return;
     try {
-      await client.from('audit_log').insert({ user_id: user.id, action: 'logout', details: {} });
+      const keys = await caches.keys();
+      await Promise.all(keys.filter(function (key) {
+        return String(key).indexOf('tinystarts-') === 0;
+      }).map(function (key) { return caches.delete(key); }));
     } catch (err) {}
-    try { await client.auth.signOut(); } catch (err) {}
-    clearSupabaseStorage();
+  }
+
+  async function expireSession() {
+    if (sessionExpiring) return;
+    sessionExpiring = true;
+    document.documentElement.dataset.gate = 'checking';
+    setAuthStatus('Sign in again to open your planner.');
+    try { await clearAppCaches(); } catch (err) {}
+    try { await signOut(); } catch (err) {}
+    setAuthStatus('Sign in again to open your planner.');
+    sessionExpiring = false;
+  }
+
+  function onSessionVisibility() {
+    if (document.visibilityState === 'hidden') {
+      if (document.documentElement.dataset.gate === 'signed-in') writeLastActivity(Date.now());
+      return;
+    }
+    if (document.documentElement.dataset.gate !== 'signed-in') return;
+    if (activityIsStale()) expireSession();
+    else writeLastActivity(Date.now());
   }
 
   function cloudUpsertDay(key, data, done) {
@@ -3622,12 +3686,21 @@
     initTheme();
     document.body.dataset.view = 'today';
     document.documentElement.dataset.gate = 'checking';
+    ['click', 'keydown', 'touchstart'].forEach(function (type) {
+      document.addEventListener(type, noteActivity, true);
+    });
+    document.addEventListener('visibilitychange', onSessionVisibility);
+    setInterval(function () {
+      if (document.documentElement.dataset.gate !== 'signed-in') return;
+      if (activityIsStale()) expireSession();
+    }, 15000);
     if ($('authForm')) $('authForm').addEventListener('submit', function (e) {
       e.preventDefault();
       signIn();
     });
     resolveSession().then(function (user) {
       if (sb) watchAuth();
+      if (user && activityIsStale()) return expireSession();
       if (user) return enterApp(user);
       showLogin();
     }).catch(function () {
@@ -3641,7 +3714,7 @@
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js?v=7').catch(function (err) {
+    navigator.serviceWorker.register('sw.js?v=8').catch(function (err) {
       console.warn('Service worker not registered:', err);
     });
   });
