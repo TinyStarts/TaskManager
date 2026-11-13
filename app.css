@@ -493,8 +493,15 @@
   .card.compact textarea { min-height: 76px; }
 
   #affirmationCard { scroll-margin-top: 120px; }
+  .read-aloud-btn { width: 100%; margin: 0 0 14px; }
+  #readAloudBtn[data-state="speaking"] { background: var(--bg-accent); color: var(--ink); }
+  .affirmation-speak-row { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 12px; }
   #affirmationText {
-    margin: 0 0 12px; font-size: 1.15rem; line-height: 1.45; font-style: italic; color: var(--ink);
+    margin: 0; flex: 1; min-width: 0; font-size: 1.15rem; line-height: 1.45; font-style: italic; color: var(--ink);
+  }
+  #affirmationSpeakBtn { margin-top: 2px; }
+  @media (min-width: 800px) {
+    .read-aloud-btn { width: auto; min-width: 180px; }
   }
   .affirmation-sub { margin-top: 18px; }
   .affirmation-list { list-style: none; padding: 0; margin: 12px 0 0; }
@@ -505,6 +512,22 @@
   .affirmation-item p { margin: 0; flex: 1; min-width: 0; }
   #affirmationSaveBtn[aria-pressed="true"] { color: var(--accent); }
 
+  .field-with-mic { display: flex; align-items: flex-start; gap: 8px; }
+  .field-with-mic textarea,
+  .field-with-mic input[type="text"] { flex: 1; min-width: 0; }
+  .mic-btn { min-width: 44px; min-height: 44px; }
+  .mic-btn[data-state="listening"] {
+    color: var(--danger);
+    background: var(--danger-soft);
+    animation: mic-pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes mic-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger) 35%, transparent); }
+    50% { box-shadow: 0 0 0 6px transparent; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mic-btn[data-state="listening"] { animation: none; }
+  }
   .meds-row { display: flex; flex-wrap: wrap; gap: 10px; }
   .check-pill {
     display: inline-flex; align-items: center; gap: 8px;

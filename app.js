@@ -499,9 +499,185 @@
     };
   }
 
+  let dictation = null;
+  let dictationBtn = null;
+  let dictationInput = null;
+  let dictationMode = 'replace';
+  let dictationBase = '';
+  let dictationFinal = '';
+  let silenceTimer = null;
+
+  function dictationCtor() {
+    return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  }
+
+  function dictationSupported() {
+    return !!dictationCtor();
+  }
+
+  function micIcon() {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'ico');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    const head = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    head.setAttribute('d', 'M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Z');
+    head.setAttribute('fill', 'none');
+    head.setAttribute('stroke', 'currentColor');
+    head.setAttribute('stroke-width', '1.7');
+    const stem = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    stem.setAttribute('d', 'M19 11a7 7 0 0 1-14 0M12 18v3');
+    stem.setAttribute('fill', 'none');
+    stem.setAttribute('stroke', 'currentColor');
+    stem.setAttribute('stroke-width', '1.7');
+    stem.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(head);
+    svg.appendChild(stem);
+    return svg;
+  }
+
+  function setMicState(button, listening) {
+    if (!button) return;
+    button.dataset.state = listening ? 'listening' : 'idle';
+    button.setAttribute('aria-pressed', listening ? 'true' : 'false');
+    const idleLabel = button.dataset.idleLabel || 'Dictate';
+    button.setAttribute('aria-label', listening ? 'Stop dictation' : idleLabel);
+  }
+
+  function clearDictationUi() {
+    if (dictationBtn) setMicState(dictationBtn, false);
+    dictationBtn = null;
+    dictationInput = null;
+    clearTimeout(silenceTimer);
+    silenceTimer = null;
+  }
+
+  function stopDictation() {
+    clearTimeout(silenceTimer);
+    const rec = dictation;
+    dictation = null;
+    if (rec) {
+      rec.onresult = null;
+      rec.onerror = null;
+      rec.onend = null;
+      try { rec.stop(); } catch (err) {}
+    }
+    clearDictationUi();
+  }
+
+  function writeDictated(input, value) {
+    input.value = value;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function appendSpoken(base, addition) {
+    const extra = String(addition || '').replace(/\s+/g, ' ').trim();
+    if (!extra) return base || '';
+    if (!base) return extra;
+    if (/\s$/.test(base)) return base + extra;
+    return base + '\n' + extra;
+  }
+
+  function noteSilence() {
+    clearTimeout(silenceTimer);
+    silenceTimer = setTimeout(function () { stopDictation(); }, 2500);
+  }
+
+  function startDictation(input, button, mode) {
+    const Ctor = dictationCtor();
+    if (!Ctor || !input || !button) return;
+    stopDictation();
+    const rec = new Ctor();
+    dictation = rec;
+    dictationBtn = button;
+    dictationInput = input;
+    dictationMode = mode;
+    dictationBase = mode === 'append' ? (input.value || '') : '';
+    dictationFinal = '';
+    rec.lang = 'en-US';
+    rec.interimResults = true;
+    rec.continuous = mode === 'append';
+    rec.onresult = function (event) {
+      if (dictation !== rec) return;
+      noteSilence();
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const piece = event.results[i][0].transcript || '';
+        if (event.results[i].isFinal) dictationFinal += piece;
+        else interim += piece;
+      }
+      const spoken = (dictationFinal + ' ' + interim).replace(/\s+/g, ' ').trim();
+      const next = mode === 'append' ? appendSpoken(dictationBase, spoken) : spoken;
+      writeDictated(input, next);
+    };
+    rec.onerror = function (event) {
+      if (dictation !== rec) return;
+      const code = event && event.error;
+      if (code === 'aborted') return;
+      if (code === 'not-allowed' || code === 'service-not-allowed') {
+        showToast('The mic stayed off. You can type instead.', 'info', 5000);
+      } else {
+        showToast('Couldn’t hear that — want to try again?', 'info', 5000);
+      }
+    };
+    rec.onend = function () {
+      if (dictation !== rec) return;
+      stopDictation();
+    };
+    setMicState(button, true);
+    noteSilence();
+    try { rec.start(); }
+    catch (err) {
+      stopDictation();
+      showToast('Couldn’t hear that — want to try again?', 'info', 5000);
+    }
+  }
+
+  function toggleDictation(input, button, mode) {
+    if (!dictationSupported()) return;
+    if (dictationBtn === button && button.dataset.state === 'listening') {
+      stopDictation();
+      return;
+    }
+    startDictation(input, button, mode);
+  }
+
+  function makeMicButton(id, label, input, mode) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = id;
+    btn.className = 'icon-btn mic-btn';
+    btn.dataset.state = 'idle';
+    btn.dataset.idleLabel = label;
+    btn.setAttribute('aria-pressed', 'false');
+    btn.setAttribute('aria-label', label);
+    btn.hidden = !dictationSupported();
+    btn.appendChild(micIcon());
+    btn.addEventListener('click', function () { toggleDictation(input, btn, mode); });
+    return btn;
+  }
+
+  function initDictation() {
+    const supported = dictationSupported();
+    ['brainDumpMic', 'myAffirmationMic'].forEach(function (id) {
+      const btn = $(id);
+      if (!btn) return;
+      btn.hidden = !supported;
+      if (!supported || btn.dataset.bound) return;
+      btn.dataset.bound = '1';
+      if (!btn.querySelector('svg')) btn.appendChild(micIcon());
+      const fieldId = id === 'brainDumpMic' ? 'brainDump' : 'myAffirmationInput';
+      const mode = id === 'brainDumpMic' ? 'append' : 'replace';
+      btn.dataset.idleLabel = btn.getAttribute('aria-label') || 'Dictate';
+      btn.addEventListener('click', function () { toggleDictation($(fieldId), btn, mode); });
+    });
+  }
+
   function renderTop3(list) {
     const wrap = $('top3');
     if (!wrap) return;
+    if (dictationInput && dictationInput.id && dictationInput.id.indexOf('top3-text-') === 0) stopDictation();
     wrap.innerHTML = '';
     const placeholders = [
       'Next small action…',
@@ -549,6 +725,7 @@
       line.appendChild(cb);
       line.appendChild(lab);
       line.appendChild(input);
+      line.appendChild(makeMicButton('top3-mic-' + n, 'Dictate priority ' + n, input, 'replace'));
       const meta = document.createElement('div');
       meta.className = 'task-meta';
       const chips = document.createElement('div');
@@ -681,6 +858,7 @@
     if ($('meds-afternoon')) $('meds-afternoon').checked = meds.afternoon;
     renderSupplementChecks(meds.supplements);
     updateTodayTagline();
+    initDictation();
   }
 
   function loadDay() {
@@ -1706,6 +1884,208 @@
     a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
     showToast('Backup downloaded', 'success');
+  }
+
+  function setExportStatus(text) {
+    const el = $('exportStatus');
+    if (el) el.textContent = text || '';
+  }
+
+  function exportShareSupported() {
+    try {
+      if (!navigator.share || !navigator.canShare) return false;
+      const file = new File(['day'], 'tinystarts-export.csv', { type: 'text/csv' });
+      return !!navigator.canShare({ files: [file] });
+    } catch (err) { return false; }
+  }
+
+  function initExportShare() {
+    const btn = $('exportShareBtn');
+    if (btn) btn.hidden = !exportShareSupported();
+  }
+
+  function csvCell(value) {
+    const text = value == null ? '' : String(value);
+    if (/[",\n\r]/.test(text)) return '"' + text.replace(/"/g, '""') + '"';
+    return text;
+  }
+
+  function inExportRange(key, range) {
+    if (!parseDateKey(key)) return false;
+    if (range === 'all') return true;
+    const count = range === '30' ? 30 : 7;
+    const end = parseDateKey(todayKey());
+    const start = new Date(end.getTime());
+    start.setDate(start.getDate() - (count - 1));
+    const day = parseDateKey(key);
+    return day >= start && day <= end;
+  }
+
+  function dayIsExportable(data) {
+    return !!(data && !isDeletedRecord(data));
+  }
+
+  async function collectExportSource() {
+    const days = getDayMap();
+    let affirmations = getAffirmationStore();
+    if (currentUser && initSupabase() && (typeof navigator === 'undefined' || navigator.onLine !== false)) {
+      try {
+        const daysRes = await sb.from('task_days').select('date, data').eq('user_id', currentUser.id);
+        if (!daysRes.error && daysRes.data) {
+          daysRes.data.forEach(function (row) {
+            if (!row || !parseDateKey(row.date)) return;
+            days[row.date] = mergeDayRecord(days[row.date], row.data);
+          });
+        }
+        const affRes = await sb.from('user_affirmations').select('data').eq('user_id', currentUser.id);
+        if (!affRes.error && affRes.data && affRes.data[0] && affRes.data[0].data) {
+          const remote = affRes.data[0].data;
+          if (recordTime(remote) >= recordTime(affirmations)) affirmations = remote;
+        }
+      } catch (err) {}
+    }
+    return { days: days, affirmations: affirmations };
+  }
+
+  function savedAffirmationTexts(store) {
+    const items = store && Array.isArray(store.items) ? store.items : [];
+    return items.filter(function (item) {
+      return item && !item.deletedAt && String(item.text || '').trim();
+    }).map(function (item) { return String(item.text).trim(); });
+  }
+
+  function buildExportRows(source, range) {
+    const texts = savedAffirmationTexts(source.affirmations);
+    const saved = texts.join(' | ');
+    const rows = [];
+    Object.keys(source.days).filter(function (key) {
+      return inExportRange(key, range) && dayIsExportable(source.days[key]);
+    }).sort().forEach(function (key) {
+      const day = source.days[key] || {};
+      const top3 = normalizeTop3(day.top3);
+      const meds = normalizeMeds(day.meds);
+      rows.push({
+        date: key,
+        affirmation: (day.affirmation && String(day.affirmation).trim()) || '',
+        top3: top3.slice(0, 3).map(function (item) { return { text: item.text || '', done: !!item.done }; }),
+        brainDump: day.brainDump || '',
+        energy: day.energy || '',
+        medsMorning: !!meds.morning,
+        medsAfternoon: !!meds.afternoon,
+        supplements: meds.supplements,
+        savedAffirmations: saved
+      });
+    });
+    return { rows: rows, savedAffirmations: texts };
+  }
+
+  function supplementColumns(rows) {
+    const slugs = {};
+    rows.forEach(function (row) {
+      Object.keys(row.supplements || {}).forEach(function (slug) { slugs[slug] = true; });
+    });
+    return Object.keys(slugs).sort();
+  }
+
+  function buildExportCsv(rows) {
+    const extras = supplementColumns(rows);
+    const header = ['date', 'affirmation', 'top3_1', 'top3_1_done', 'top3_2', 'top3_2_done', 'top3_3', 'top3_3_done', 'brain_dump', 'energy', 'meds_morning', 'meds_afternoon']
+      .concat(extras.map(function (slug) { return 'med_' + slug.replace(/-/g, '_'); }))
+      .concat(['saved_affirmations']);
+    const lines = [header.join(',')];
+    rows.forEach(function (row) {
+      const cells = [
+        row.date,
+        row.affirmation,
+        row.top3[0] ? row.top3[0].text : '',
+        row.top3[0] && row.top3[0].done ? 'yes' : 'no',
+        row.top3[1] ? row.top3[1].text : '',
+        row.top3[1] && row.top3[1].done ? 'yes' : 'no',
+        row.top3[2] ? row.top3[2].text : '',
+        row.top3[2] && row.top3[2].done ? 'yes' : 'no',
+        row.brainDump,
+        row.energy,
+        row.medsMorning ? 'yes' : 'no',
+        row.medsAfternoon ? 'yes' : 'no'
+      ];
+      extras.forEach(function (slug) {
+        cells.push(row.supplements[slug] ? 'yes' : 'no');
+      });
+      cells.push(row.savedAffirmations);
+      lines.push(cells.map(csvCell).join(','));
+    });
+    return lines.join('\r\n') + '\r\n';
+  }
+
+  function buildExportJson(rows, savedAffirmations, range) {
+    return JSON.stringify({
+      exportedAt: new Date().toISOString(),
+      range: range,
+      savedAffirmations: savedAffirmations,
+      days: rows.map(function (row) {
+        return {
+          date: row.date,
+          affirmation: row.affirmation,
+          top3: row.top3,
+          brainDump: row.brainDump,
+          energy: row.energy,
+          meds: {
+            morning: row.medsMorning,
+            afternoon: row.medsAfternoon,
+            supplements: row.supplements
+          },
+          savedAffirmations: savedAffirmationTexts({ items: savedAffirmations.map(function (text) { return { text: text }; }) })
+        };
+      })
+    }, null, 2);
+  }
+
+  async function makeExportFile() {
+    const range = ($('exportRange') && $('exportRange').value) || '7';
+    const format = ($('exportFormat') && $('exportFormat').value) === 'json' ? 'json' : 'csv';
+    const source = await collectExportSource();
+    const built = buildExportRows(source, range);
+    if (!built.rows.length) {
+      setExportStatus('No entries yet in this range.');
+      return null;
+    }
+    setExportStatus('');
+    const name = 'tinystarts-export-' + todayKey() + '.' + format;
+    if (format === 'json') {
+      return new File([buildExportJson(built.rows, built.savedAffirmations, range)], name, { type: 'application/json' });
+    }
+    return new File([buildExportCsv(built.rows)], name, { type: 'text/csv' });
+  }
+
+  function downloadFile(file) {
+    const url = URL.createObjectURL(file);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = file.name;
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+  }
+
+  async function downloadExport() {
+    const file = await makeExportFile();
+    if (!file) return;
+    downloadFile(file);
+    showToast('Export downloaded', 'success');
+  }
+
+  async function shareExport() {
+    const file = await makeExportFile();
+    if (!file) return;
+    try {
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'TinyStarts export', text: 'My planner days' });
+        return;
+      }
+    } catch (err) {
+      if (err && err.name === 'AbortError') return;
+    }
+    showToast('Couldn’t share just now. The download is ready instead.', 'info', 5000);
+    downloadFile(file);
   }
 
   function newerDay(a, b) {
@@ -3584,7 +3964,9 @@
       if ($('newItemEnd')) $('newItemEnd').disabled = on;
     });
     $('copyTomorrowBtn').addEventListener('click', copyDayToTomorrow);
-    $('exportBtn').addEventListener('click', exportData);
+    $('exportBtn').addEventListener('click', function () { downloadExport(); });
+    initExportShare();
+    if ($('exportShareBtn')) $('exportShareBtn').addEventListener('click', function () { shareExport(); });
     $('exportBtn2').addEventListener('click', exportData);
     function pickImport() { $('importFile').click(); }
     $('importBtn').addEventListener('click', pickImport);
@@ -3682,8 +4064,165 @@
     });
   }
 
+  let speechGen = 0;
+  let speechVoice = null;
+
+  function speechAvailable() {
+    return typeof window.speechSynthesis !== 'undefined' && typeof window.SpeechSynthesisUtterance !== 'undefined';
+  }
+
+  function joinSpoken(items) {
+    if (!items.length) return '';
+    if (items.length === 1) return items[0];
+    if (items.length === 2) return items[0] + ' and ' + items[1];
+    return items.slice(0, -1).join(', ') + ', and ' + items[items.length - 1];
+  }
+
+  function checkboxSpokenName(input, fallback) {
+    const label = input && input.closest ? input.closest('label') : null;
+    const text = label ? String(label.textContent || '').replace(/\s+/g, ' ').trim() : '';
+    return text || fallback;
+  }
+
+  function chooseSpeechVoice() {
+    if (!speechAvailable()) return null;
+    const voices = window.speechSynthesis.getVoices() || [];
+    let best = null;
+    let bestScore = -1;
+    voices.forEach(function (voice) {
+      const lang = String(voice.lang || '').toLowerCase();
+      const name = String(voice.name || '').toLowerCase();
+      let score = 0;
+      if (lang.indexOf('en') === 0) score += 4;
+      if (voice.localService) score += 3;
+      if (name.indexOf('english') !== -1) score += 1;
+      if (score > bestScore) { best = voice; bestScore = score; }
+    });
+    speechVoice = best;
+    return best;
+  }
+
+  function setReadAloudState(state) {
+    const btn = $('readAloudBtn');
+    if (!btn) return;
+    btn.dataset.state = state === 'speaking' ? 'speaking' : 'idle';
+    btn.textContent = state === 'speaking' ? 'Stop' : 'Read aloud';
+    btn.setAttribute('aria-pressed', state === 'speaking' ? 'true' : 'false');
+  }
+
+  function stopSpeech() {
+    speechGen++;
+    if (speechAvailable()) {
+      try { window.speechSynthesis.cancel(); } catch (err) {}
+    }
+    setReadAloudState('idle');
+  }
+
+  function speak(text) {
+    if (!speechAvailable()) return;
+    const message = String(text || '').trim();
+    if (!message) return;
+    const gen = ++speechGen;
+    try { window.speechSynthesis.cancel(); } catch (err) {}
+    const utterance = new window.SpeechSynthesisUtterance(message);
+    utterance.rate = 0.95;
+    utterance.pitch = 1;
+    const voice = speechVoice || chooseSpeechVoice();
+    if (voice) utterance.voice = voice;
+    if (voice && voice.lang) utterance.lang = voice.lang;
+    else utterance.lang = 'en-US';
+    function finish() {
+      if (gen !== speechGen) return;
+      setReadAloudState('idle');
+    }
+    utterance.onend = finish;
+    utterance.onerror = finish;
+    setReadAloudState('speaking');
+    try { window.speechSynthesis.speak(utterance); }
+    catch (err) { setReadAloudState('idle'); }
+  }
+
+  function medsToSpeak() {
+    const items = [];
+    let total = 0;
+    const morning = $('meds-morning');
+    const afternoon = $('meds-afternoon');
+    if (morning) {
+      total++;
+      if (!morning.checked) items.push(checkboxSpokenName(morning, 'morning dose'));
+    }
+    if (afternoon) {
+      total++;
+      if (!afternoon.checked) items.push(checkboxSpokenName(afternoon, 'afternoon dose'));
+    }
+    const card = $('medsCard');
+    if (card) {
+      card.querySelectorAll('input[type="checkbox"][id^="med-"]').forEach(function (input) {
+        total++;
+        if (!input.checked) items.push(checkboxSpokenName(input, input.id.replace(/^med-/, '').replace(/-/g, ' ')));
+      });
+    }
+    return { total: total, unchecked: items };
+  }
+
+  function readAloudScript() {
+    const lines = [];
+    const affirmation = (($('affirmationText') && $('affirmationText').textContent) || '').trim();
+    const tasks = [];
+    [1, 2, 3].forEach(function (n) {
+      const el = $('top3-text-' + n);
+      const text = el ? String(el.value || '').trim() : '';
+      if (text) tasks.push(text);
+    });
+    const todayish = activeKey() === todayKey();
+    if (affirmation) {
+      lines.push((todayish ? 'Today’s affirmation. ' : 'The affirmation for this day. ') + affirmation);
+    }
+    if (tasks.length) {
+      const words = ['One', 'Two', 'Three'];
+      const numbered = tasks.map(function (text, i) { return words[i] + ': ' + text; });
+      lines.push((todayish ? 'Your top 3 today. ' : 'Your top 3 for this day. ') + numbered.join('. ') + '.');
+    } else {
+      lines.push('Nothing planned yet. Want to pick one small thing?');
+    }
+    const meds = medsToSpeak();
+    if (meds.total) {
+      if (!meds.unchecked.length) lines.push('Meds are all done. Nice.');
+      else lines.push('Still to take: ' + joinSpoken(meds.unchecked) + '.');
+    }
+    if (!lines.length) lines.push('Nothing planned yet. Want to pick one small thing?');
+    return lines.join(' ');
+  }
+
+  function initReadAloud() {
+    const mainBtn = $('readAloudBtn');
+    const affBtn = $('affirmationSpeakBtn');
+    if (!speechAvailable()) {
+      if (mainBtn) mainBtn.hidden = true;
+      if (affBtn) affBtn.hidden = true;
+      return;
+    }
+    if (mainBtn) mainBtn.hidden = false;
+    if (affBtn) affBtn.hidden = false;
+    chooseSpeechVoice();
+    if (window.speechSynthesis.addEventListener) {
+      window.speechSynthesis.addEventListener('voiceschanged', chooseSpeechVoice);
+    } else {
+      window.speechSynthesis.onvoiceschanged = chooseSpeechVoice;
+    }
+    if (mainBtn) mainBtn.addEventListener('click', function () {
+      if (mainBtn.dataset.state === 'speaking') stopSpeech();
+      else speak(readAloudScript());
+    });
+    if (affBtn) affBtn.addEventListener('click', function () {
+      const text = (($('affirmationText') && $('affirmationText').textContent) || '').trim();
+      speak(text ? text : 'No affirmation to read yet.');
+    });
+  }
+
   function start() {
     initTheme();
+    initReadAloud();
     document.body.dataset.view = 'today';
     document.documentElement.dataset.gate = 'checking';
     ['click', 'keydown', 'touchstart'].forEach(function (type) {
