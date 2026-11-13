@@ -82,39 +82,34 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
     </div>
   </div>
   <section id="todayView" class="view active">
-    <div class="date-row today-head">
-      <div class="day-nav-wrap">
-        <div class="day-nav">
-          <button type="button" class="icon-btn" id="prevDayBtn" aria-label="Previous day"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6 8.5 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-          <button type="button" class="day-title-btn" id="openDayPickerBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="dayPicker">
-            <h2 id="todayHeading">Today</h2>
-          </button>
-          <button type="button" class="icon-btn" id="nextDayBtn" aria-label="Next day"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6 15.5 12l-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-          <button type="button" class="btn secondary" id="jumpTodayBtn">Today</button>
-          <button type="button" class="icon-btn" id="dayMenuBtn" aria-label="Day options" aria-haspopup="menu" aria-expanded="false" aria-controls="dayMenu"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="18" cy="12" r="1.4" fill="currentColor"/></svg></button>
-        </div>
-        <p id="todayTagline">Start with your energy, then one small next action.</p>
-        <div id="dayMenu" class="day-menu" hidden role="menu">
-          <button type="button" class="btn secondary" id="clearDayBtn" role="menuitem">Clear this day</button>
-        </div>
-        <div id="dayPicker" class="day-picker" hidden role="dialog" aria-modal="false" aria-label="Choose a day"></div>
+    <div class="day-hero today-head">
+      <div class="day-hero-row">
+        <button type="button" class="day-title-btn" id="openDayPickerBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="dayPicker" aria-label="Choose a day">
+          <h2 id="todayHeading">Today</h2>
+        </button>
+        <span class="today-pill" id="todayPill">Today</span>
+        <button type="button" class="btn ghost" id="jumpTodayBtn" hidden>Back to today</button>
+        <button type="button" class="icon-btn" id="dayMenuBtn" aria-label="Day options" aria-haspopup="menu" aria-expanded="false" aria-controls="dayMenu"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="18" cy="12" r="1.4" fill="currentColor"/></svg></button>
+        <button type="button" class="visually-hidden" id="prevDayBtn">Previous day</button>
+        <button type="button" class="visually-hidden" id="nextDayBtn">Next day</button>
       </div>
+      <p id="todayTagline">Start with your energy, then one small next action.</p>
+      <p class="day-progress" id="dayProgress" aria-live="polite"></p>
       <p class="saved-indicator" id="saveStatus" role="status" aria-live="polite" data-state=""></p>
+      <div id="dayMenu" class="day-menu" hidden role="menu">
+        <button type="button" class="btn secondary" id="clearDayBtn" role="menuitem">Clear this day</button>
+      </div>
+      <div id="dayPicker" class="day-picker" hidden role="dialog" aria-modal="false" aria-label="Choose a day"></div>
     </div>
 
     <div class="card" id="affirmationCard">
       <h3>Affirmation</h3>
-      <p class="hint">A gentle line for this day. It stays put until tomorrow, unless you want another.</p>
+      <p class="hint">One line for this day. It stays the same until tomorrow.</p>
       <p id="affirmationText"></p>
       <input type="text" id="affirmation" name="affirmation" class="visually-hidden" tabindex="-1" aria-hidden="true">
       <div class="btn-row">
-        <button type="button" class="btn secondary" id="affirmationShuffleBtn">Show another</button>
-        <button type="button" class="btn ghost" id="affirmationSaveBtn" aria-pressed="false" aria-label="Save this affirmation">Save</button>
+        <button type="button" class="btn" id="affirmationUseBtn" aria-pressed="false">Use it</button>
       </div>
-      <label class="check-field" for="affirmationMixToggle">
-        <input type="checkbox" id="affirmationMixToggle" name="affirmationMixToggle">
-        Also use my own affirmations for the daily pick
-      </label>
       <h3 class="affirmation-sub">My affirmations</h3>
       <p class="hint">Write one in your own words. You can edit or delete it later.</p>
       <label class="field" for="myAffirmationInput">Your words</label>
@@ -128,8 +123,26 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
       <ul id="myAffirmationList" class="affirmation-list"></ul>
     </div>
 
-    <div class="card compact" id="energyCard">
+    <div class="card compact trophy-card" id="brainDumpCard">
+      <span class="trophy" id="trophy-brain" hidden aria-hidden="true">🏆</span>
+      <h3>Quick brain dump</h3>
+      <p class="tile-status" id="status-brain">not yet</p>
+      <p class="hint">Optional. Get it out of your head before you pick today&#8217;s actions.</p>
+      <div class="field-with-mic">
+        <textarea id="brainDump" name="brainDump" placeholder="Dump everything on your mind&#8230;"></textarea>
+        <button type="button" class="icon-btn mic-btn" id="brainDumpMic" data-state="idle" aria-pressed="false" aria-label="Dictate brain dump" hidden></button>
+      </div>
+      <ul id="brainDumpLines" class="brain-lines"></ul>
+      <div class="btn-row">
+        <button type="button" class="btn secondary" id="suggestTop3Btn">Suggest from this</button>
+      </div>
+      <div id="suggestions" class="hint"></div>
+    </div>
+
+    <div class="card compact trophy-card" id="energyCard">
+      <span class="trophy" id="trophy-energy" hidden aria-hidden="true">🏆</span>
       <h3>How&#8217;s your energy?</h3>
+      <p class="tile-status" id="status-energy">not yet</p>
       <p class="hint">This sets how many tasks to show. You can always add another.</p>
       <div class="energy" id="energyBtns">
         <button type="button" id="energy-low" data-level="Low" aria-pressed="false">Low</button>
@@ -138,8 +151,10 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
       </div>
     </div>
 
-    <div class="card compact" id="medsCard">
+    <div class="card compact trophy-card" id="medsCard">
+      <span class="trophy" id="trophy-meds" hidden aria-hidden="true">🏆</span>
       <h3>Meds</h3>
+      <p class="tile-status" id="status-meds">not yet</p>
       <p class="hint">A simple check-off for today. Nothing else is attached to this.</p>
       <div class="meds-row">
         <label class="check-pill" for="meds-morning">
@@ -155,24 +170,12 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
       <div class="meds-row" id="supplementList"></div>
     </div>
 
-    <div class="card compact" id="brainDumpCard">
-      <h3>Quick brain dump</h3>
-      <p class="hint">Optional. Get it out of your head before you pick today&#8217;s actions.</p>
-      <div class="field-with-mic">
-        <textarea id="brainDump" name="brainDump" placeholder="Dump everything on your mind&#8230;"></textarea>
-        <button type="button" class="icon-btn mic-btn" id="brainDumpMic" data-state="idle" aria-pressed="false" aria-label="Dictate brain dump" hidden></button>
-      </div>
-      <ul id="brainDumpLines" class="brain-lines"></ul>
-      <div class="btn-row">
-        <button type="button" class="btn secondary" id="suggestTop3Btn">Suggest from this</button>
-      </div>
-      <div id="suggestions" class="hint"></div>
-    </div>
-
     <div id="carryPrompt"></div>
 
-    <div class="card" id="top3Card">
+    <div class="card trophy-card" id="top3Card">
+      <span class="trophy" id="trophy-top3" hidden aria-hidden="true">🏆</span>
       <h3 id="top3Title">Today&#8217;s Top 3</h3>
+      <p class="tile-status" id="status-top3">not yet</p>
       <p class="hint" id="top3Hint">Write the next concrete step, not the whole project.</p>
       <div id="top3"></div>
       <div class="btn-row">
