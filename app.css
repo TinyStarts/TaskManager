@@ -493,8 +493,15 @@
   .card.compact textarea { min-height: 76px; }
 
   #affirmationCard { scroll-margin-top: 120px; }
+  .read-aloud-btn { width: 100%; margin: 0 0 14px; }
+  #readAloudBtn[data-state="speaking"] { background: var(--bg-accent); color: var(--ink); }
+  .affirmation-speak-row { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 12px; }
   #affirmationText {
-    margin: 0 0 12px; font-size: 1.15rem; line-height: 1.45; font-style: italic; color: var(--ink);
+    margin: 0; flex: 1; min-width: 0; font-size: 1.15rem; line-height: 1.45; font-style: italic; color: var(--ink);
+  }
+  #affirmationSpeakBtn { margin-top: 2px; }
+  @media (min-width: 800px) {
+    .read-aloud-btn { width: auto; min-width: 180px; }
   }
   .affirmation-sub { margin-top: 18px; }
   .affirmation-list { list-style: none; padding: 0; margin: 12px 0 0; }
