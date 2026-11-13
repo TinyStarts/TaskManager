@@ -99,7 +99,7 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
         </div>
         <div id="dayPicker" class="day-picker" hidden role="dialog" aria-modal="false" aria-label="Choose a day"></div>
       </div>
-      <p class="saved-indicator" id="saveStatus" role="status" aria-live="polite"></p>
+      <p class="saved-indicator" id="saveStatus" role="status" aria-live="polite" data-state=""></p>
     </div>
 
     <div class="card" id="affirmationCard">
@@ -148,6 +148,8 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
           <span>Afternoon dose</span>
         </label>
       </div>
+      <p class="hint supplement-label">Morning supplements</p>
+      <div class="meds-row" id="supplementList"></div>
     </div>
 
     <div class="card compact" id="brainDumpCard">
@@ -308,6 +310,16 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
     <p class="hint" id="accountStatus">Sign in with the same username and password on your phone and on the Life Admin computer so both stay in sync.</p>
     <div class="btn-row" id="authButtons"></div>
     <div id="securityPanel"></div>
+
+    <hr class="section-rule">
+    <h3>Morning supplements</h3>
+    <p class="hint">Vitamin D, Vitamin K, and Zinc stay on the list. You can rename them, or add another.</p>
+    <div id="supplementSettings"></div>
+    <label class="field" for="newSupplementName">Add a supplement</label>
+    <input type="text" id="newSupplementName" name="newSupplementName" maxlength="40" placeholder="Fish oil" autocomplete="off">
+    <div class="btn-row">
+      <button type="button" class="btn secondary" id="addSupplementBtn">Add</button>
+    </div>
 
     <hr class="section-rule">
     <h3 id="syncHeading">Optional extra backup (Gist)</h3>
