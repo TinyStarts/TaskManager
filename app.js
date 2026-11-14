@@ -207,6 +207,8 @@
   let editingKey = null;
   let pickerMonth = new Date();
   let dayDirty = false;
+  let loadedDayKey = null;
+  const lastKnownCloudDays = {};
   let plannerDate = new Date();
   let plannerView = 'week';
   let editingPlanner = null;
@@ -255,6 +257,7 @@
   function mergeDayRecord(local, remote) {
     if (!local) return remote || null;
     if (!remote) return local;
+    if (!isDeletedRecord(remote) && dayHasContent(local) && !dayHasContent(remote)) return local;
     return recordTime(remote) >= recordTime(local) ? remote : local;
   }
 
@@ -944,11 +947,16 @@
     initDictation();
   }
 
+  function markDayUnloaded() {
+    loadedDayKey = null;
+  }
+
   function loadDay() {
     const key = activeKey();
     const all = getDayMap();
     const data = all[key] || {};
     fillDayForm(isDeletedRecord(data) ? {} : data);
+    loadedDayKey = key;
     dayDirty = false;
     checkCarryOver();
     updateTodayHeading();
@@ -1062,6 +1070,7 @@
     pickerMonth = new Date(parsed.getFullYear(), parsed.getMonth(), 1);
     writeDateParam(next, !!push);
     closeDayChrome();
+    markDayUnloaded();
     loadDay();
     renderPlanner();
   }
@@ -1302,12 +1311,44 @@
     }
   }
 
+  function rememberCloudDay(key, data) {
+    if (!key || !data) return;
+    try { lastKnownCloudDays[key] = JSON.parse(JSON.stringify(data)); }
+    catch (err) { lastKnownCloudDays[key] = data; }
+  }
+
+  function emptyWouldEraseContent(key, data) {
+    if (!data || isDeletedRecord(data) || dayHasContent(data)) return false;
+    return dayHasContent(getDayMap()[key]) || dayHasContent(lastKnownCloudDays[key]);
+  }
+
+  function rememberDayBackup(key) {
+    const existing = getDayMap()[key];
+    if (!dayHasContent(existing)) return;
+    const all = loadJson('task-days-backup', {});
+    const list = Array.isArray(all[key]) ? all[key].slice() : [];
+    let copy = existing;
+    try { copy = JSON.parse(JSON.stringify(existing)); } catch (err) {}
+    list.push({ savedAt: new Date().toISOString(), data: copy });
+    all[key] = list.slice(-3);
+    saveJson('task-days-backup', all);
+  }
+
   function saveDay() {
     if (!currentUser) return;
-    dayDirty = false;
+    if (loadedDayKey == null || loadedDayKey !== activeKey()) return;
     const all = getDayMap();
     const key = activeKey();
     const data = currentDayDataFromDom();
+    if (emptyWouldEraseContent(key, data)) {
+      console.warn('Skipped saving an empty day over existing entries for ' + key);
+      dayDirty = false;
+      clearTimeout(saveTimer);
+      saveTimer = null;
+      return;
+    }
+    rememberDayBackup(key);
+    dayDirty = false;
     all[key] = data;
     saveJson('task-days', all);
     showAffirmation(data.affirmation);
@@ -3608,10 +3649,13 @@
     'tinystarts-sync-enabled',
     'tinystarts-user-id',
     'user-affirmations',
-    'supplement-catalog'
+    'supplement-catalog',
+    'task-days-backup'
   ];
 
   function clearLocalPersonalData() {
+    markDayUnloaded();
+    Object.keys(lastKnownCloudDays).forEach(function (key) { delete lastKnownCloudDays[key]; });
     LOCAL_DATA_KEYS.forEach(function (key) {
       try { localStorage.removeItem(key); } catch (err) {}
       delete memoryStore[key];
@@ -3634,6 +3678,7 @@
   }
 
   function blankAppDom() {
+    markDayUnloaded();
     fillDayForm({});
     ['plannerContent', 'history', 'winsThisWeek', 'energyCalendar', 'suggestions', 'miniCalendar'].forEach(function (id) {
       const el = $(id);
@@ -3658,6 +3703,7 @@
   }
 
   async function enterApp(user, options) {
+    markDayUnloaded();
     writeLastActivity(Date.now());
     if (!localDataBelongsTo(user)) clearLocalPersonalData();
     safeSet('tinystarts-user-id', user.id);
@@ -3901,6 +3947,7 @@
         const local = getDayMap();
         daysRes.data.forEach(function (row) {
           if (!row || !row.date || !parseDateKey(row.date)) return;
+          rememberCloudDay(row.date, row.data);
           local[row.date] = mergeDayRecord(local[row.date], row.data);
         });
         saveJson('task-days', local);
@@ -4396,7 +4443,7 @@
       modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(modal.id); });
     });
     document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'hidden') saveDay();
+      if (document.visibilityState === 'hidden') flushSave();
       if (document.visibilityState === 'visible') {
         checkReminders();
         if (currentUser) {
@@ -4412,6 +4459,7 @@
       const requested = readDateParam();
       const key = requested || todayKey();
       editingKey = key === todayKey() ? null : key;
+      markDayUnloaded();
       const parsed = parseDateKey(key);
       if (parsed) {
         plannerDate = new Date(parsed.getTime());
@@ -4483,7 +4531,7 @@
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js?v=12').catch(function (err) {
+    navigator.serviceWorker.register('sw.js?v=13').catch(function (err) {
       console.warn('Service worker not registered:', err);
     });
   });
