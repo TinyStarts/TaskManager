@@ -515,6 +515,10 @@
   .backup-version p { margin: 0; min-width: 0; }
   .backup-version .when { display: block; color: var(--muted); font-size: 0.78rem; }
   #showMoreToday { width: 100%; margin: 0 0 14px; }
+  .later-lot { margin-top: 14px; padding-top: 8px; border-top: 1px solid var(--line); }
+  .later-title { margin: 0 0 4px; font-size: 1rem; }
+  .first-step { margin-top: 12px; }
+  #focusTimerDisplay { margin: 8px 0 0; color: var(--muted); min-height: 1.2em; }
   #todayView[data-energy="low"]:not([data-more="open"]) .low-energy-extra { display: none !important; }
   .brain-line-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
   .brain-line-actions button { min-height: 44px; }

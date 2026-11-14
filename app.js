@@ -310,7 +310,8 @@
       return {
         text: (item && item.text) || '',
         done: !!(item && item.done),
-        estimate: (item && item.estimate) || ''
+        estimate: (item && item.estimate) || '',
+        firstStep: (item && item.firstStep) || ''
       };
     }) : [];
     while (rows.length < 3) rows.push({ text: '', done: false, estimate: '' });
@@ -557,7 +558,8 @@
       top3.push({
         text: textEl ? textEl.value : '',
         done: !!(doneEl && doneEl.checked),
-        estimate: estBtn ? estBtn.dataset.estimate : ''
+        estimate: estBtn ? estBtn.dataset.estimate : '',
+        firstStep: row.dataset.firstStep || ''
       });
     });
     const micro = [];
@@ -777,6 +779,7 @@
       const row = document.createElement('div');
       row.className = 'task-row' + (item.done ? ' done' : '');
       row.id = 'top3-row-' + n;
+      row.dataset.firstStep = item.firstStep || '';
       const cb = document.createElement('input');
       cb.type = 'checkbox';
       cb.id = 'top3-done-' + n;
@@ -865,6 +868,7 @@
       wrap.appendChild(row);
     });
     applyEnergySlots();
+    syncFirstStepField();
   }
 
   function renderMicro(list) {
@@ -968,6 +972,8 @@
     renderMyAffirmations();
     updateEditingBanner();
     renderDayBackups();
+    renderLaterList();
+    syncFirstStepField();
     applyLowEnergyMode();
   }
 
@@ -1107,6 +1113,13 @@
       toPlan.textContent = '→ Planner';
       toPlan.setAttribute('aria-label', 'Add line ' + (index + 1) + ' to the planner');
       toPlan.addEventListener('click', function () { sendBrainLineToPlanner(line.trim()); });
+      const toLater = document.createElement('button');
+      toLater.type = 'button';
+      toLater.className = 'btn ghost';
+      toLater.id = 'brain-line-later-' + (index + 1);
+      toLater.textContent = '→ Later';
+      toLater.setAttribute('aria-label', 'Park line ' + (index + 1) + ' for later');
+      toLater.addEventListener('click', function () { moveBrainLineToLater(index); });
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'icon-text';
@@ -1116,6 +1129,7 @@
       btn.addEventListener('click', function () { deleteBrainLine(index); });
       actions.appendChild(toTop);
       actions.appendChild(toPlan);
+      actions.appendChild(toLater);
       actions.appendChild(btn);
       li.appendChild(span);
       li.appendChild(actions);
@@ -1388,27 +1402,71 @@
     if (!suggestions.length) return;
     prompt.style.display = 'block';
     prompt.classList.add('show');
-    const intro = document.createElement('p');
-    intro.className = 'hint';
-    intro.id = 'carryPromptText';
-    intro.textContent = 'From yesterday, if you want them today. Tap to add.';
-    prompt.appendChild(intro);
-    const list = document.createElement('div');
-    list.className = 'suggest-list';
-    list.id = 'carrySuggestions';
-    suggestions.forEach(function (s, i) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'suggest-chip';
-      btn.id = 'carry-suggest-' + (i + 1);
-      btn.appendChild(document.createTextNode(s.text));
-      const mark = document.createElement('span');
-      mark.textContent = 'Add';
-      btn.appendChild(mark);
-      btn.addEventListener('click', function () { addSuggestionToTop3(s); });
-      list.appendChild(btn);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn secondary';
+    btn.id = 'carryOverBtn';
+    btn.textContent = 'Carry over leftovers';
+    btn.addEventListener('click', carryOverLeftovers);
+    prompt.appendChild(btn);
+  }
+
+  function yesterdayLeftovers() {
+    const y = new Date();
+    y.setDate(y.getDate() - 1);
+    const yData = getDayMap()[dateKey(y)] || {};
+    const todayTexts = normalizeTop3(currentDayDataFromDom().top3).map(function (t) { return t.text.trim().toLowerCase(); }).filter(Boolean);
+    const suggestions = [];
+    normalizeTop3(yData.top3).forEach(function (t) {
+      if (t.text && !t.done && todayTexts.indexOf(t.text.trim().toLowerCase()) === -1) suggestions.push({ text: t.text, estimate: t.estimate || '' });
     });
-    prompt.appendChild(list);
+    if (yData.tomorrow1 && todayTexts.indexOf(String(yData.tomorrow1).trim().toLowerCase()) === -1) {
+      const already = suggestions.some(function (s) { return s.text.trim().toLowerCase() === String(yData.tomorrow1).trim().toLowerCase(); });
+      if (!already) suggestions.push({ text: String(yData.tomorrow1).trim(), estimate: '' });
+    }
+    return suggestions;
+  }
+
+  function carryOverLeftovers() {
+    const cap = energySlotCount(currentEnergy());
+    let filled = 0;
+    for (let n = 1; n <= 3; n++) {
+      const input = $('top3-text-' + n);
+      if (input && String(input.value || '').trim()) filled++;
+    }
+    const room = Math.max(0, Math.min(3, cap) - filled);
+    const suggestions = yesterdayLeftovers();
+    if (!suggestions.length) {
+      showToast('Nothing left over from yesterday.', 'info');
+      return;
+    }
+    if (!room) {
+      showToast('Today already has room for what fits. You can edit one if you want.', 'info');
+      return;
+    }
+    let added = 0;
+    suggestions.forEach(function (item) {
+      if (added >= room) return;
+      for (let n = 1; n <= cap; n++) {
+        const input = $('top3-text-' + n);
+        if (input && !String(input.value || '').trim()) {
+          input.value = item.text;
+          const row = input.closest('.task-row');
+          if (row && item.estimate) {
+            row.querySelectorAll('.est-chips button').forEach(function (b) {
+              b.classList.toggle('active', b.dataset.estimate === item.estimate);
+            });
+          }
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          added++;
+          break;
+        }
+      }
+    });
+    applyEnergySlots();
+    if (!added) showToast('Nothing else fits in today’s space.', 'info');
+    else showToast('Brought over what fits today.', 'success');
+    checkCarryOver();
   }
 
   function carryForward() {
@@ -1706,6 +1764,125 @@
       }
     }
     showToast('Top 3 is full for now. You can edit one when you want.', 'info');
+  }
+
+  function getLaterItems() {
+    const raw = loadJson('later-items', {});
+    const items = Array.isArray(raw.items) ? raw.items : [];
+    return items.filter(function (item) { return item && String(item.text || '').trim(); });
+  }
+
+  function saveLaterItems(items) {
+    saveJson('later-items', { items: items, savedAt: new Date().toISOString() });
+    renderLaterList();
+  }
+
+  function renderLaterList() {
+    const list = $('laterList');
+    if (!list) return;
+    list.innerHTML = '';
+    getLaterItems().forEach(function (item) {
+      const li = document.createElement('li');
+      li.className = 'brain-line';
+      li.id = 'later-item-' + item.id;
+      const span = document.createElement('span');
+      span.textContent = item.text;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn ghost';
+      btn.textContent = '→ Today';
+      btn.setAttribute('aria-label', 'Pull ' + item.text + ' into Today');
+      btn.addEventListener('click', function () { pullLaterToToday(item.id); });
+      li.appendChild(span);
+      li.appendChild(btn);
+      list.appendChild(li);
+    });
+  }
+
+  function moveBrainLineToLater(index) {
+    const box = $('brainDump');
+    if (!box) return;
+    const lines = String(box.value || '').split('\n');
+    const text = String(lines[index] || '').trim();
+    if (!text) return;
+    const items = getLaterItems();
+    items.push({ id: 'later-' + Date.now().toString(36), text: text, savedAt: new Date().toISOString() });
+    lines.splice(index, 1);
+    box.value = lines.join('\n');
+    box.dispatchEvent(new Event('input', { bubbles: true }));
+    saveLaterItems(items);
+    showToast('Parked for later.', 'success');
+  }
+
+  function pullLaterToToday(id) {
+    const items = getLaterItems();
+    const item = items.filter(function (row) { return row.id === id; })[0];
+    if (!item) return;
+    let placed = false;
+    for (let n = 1; n <= 3; n++) {
+      const input = $('top3-text-' + n);
+      if (input && !String(input.value || '').trim()) {
+        input.value = item.text;
+        applyEnergySlots();
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) {
+      showToast('Top 3 is full for now. You can edit one when you want.', 'info');
+      return;
+    }
+    saveLaterItems(items.filter(function (row) { return row.id !== id; }));
+    showToast('Pulled into Today.', 'success');
+  }
+
+  function syncFirstStepField() {
+    const input = $('firstStepInput');
+    const row = currentTop3Row();
+    if (!input) return;
+    input.value = row ? (row.dataset.firstStep || '') : '';
+  }
+
+  function currentTop3Row() {
+    const rows = document.querySelectorAll('#top3 .task-row');
+    for (let i = 0; i < rows.length; i++) {
+      const text = rows[i].querySelector('input[type="text"]');
+      const done = rows[i].querySelector('input[type="checkbox"]');
+      if (text && String(text.value || '').trim() && !(done && done.checked)) return rows[i];
+    }
+    return rows[0] || null;
+  }
+
+  let focusTimerInterval = null;
+  let focusEndsAt = 0;
+
+  function startFocusTimer(mins) {
+    clearInterval(focusTimerInterval);
+    focusEndsAt = Date.now() + mins * 60 * 1000;
+    tickFocusTimer();
+    focusTimerInterval = setInterval(tickFocusTimer, 250);
+  }
+
+  function tickFocusTimer() {
+    const remaining = Math.max(0, Math.round((focusEndsAt - Date.now()) / 1000));
+    const el = $('focusTimerDisplay');
+    if (el) {
+      const minutes = Math.floor(remaining / 60);
+      const seconds = remaining % 60;
+      el.textContent = remaining ? (minutes + ':' + String(seconds).padStart(2, '0')) : 'Time’s up. The step can stay small.';
+    }
+    if (remaining <= 0) {
+      clearInterval(focusTimerInterval);
+      focusTimerInterval = null;
+    }
+  }
+
+  function stopFocusTimer() {
+    clearInterval(focusTimerInterval);
+    focusTimerInterval = null;
+    focusEndsAt = 0;
+    if ($('focusTimerDisplay')) $('focusTimerDisplay').textContent = '';
   }
 
   function sendBrainLineToPlanner(text) {
@@ -3739,7 +3916,8 @@
     'tinystarts-user-id',
     'user-affirmations',
     'supplement-catalog',
-    'task-days-backup'
+    'task-days-backup',
+    'later-items'
   ];
 
   function clearLocalPersonalData() {
@@ -4372,6 +4550,16 @@
       applyEnergySlots();
       scheduleSave();
     });
+    if ($('firstStepInput')) $('firstStepInput').addEventListener('input', function () {
+      const row = currentTop3Row();
+      if (!row) return;
+      row.dataset.firstStep = $('firstStepInput').value;
+      scheduleSave();
+    });
+    document.querySelectorAll('.focus-mins').forEach(function (btn) {
+      btn.addEventListener('click', function () { startFocusTimer(Number(btn.dataset.mins) || 5); });
+    });
+    if ($('focusTimerStop')) $('focusTimerStop').addEventListener('click', stopFocusTimer);
     if ($('showMoreToday')) $('showMoreToday').addEventListener('click', toggleShowMore);
     if ($('restoreEarlierBtn')) $('restoreEarlierBtn').addEventListener('click', function () {
       const list = $('restoreEarlierList');
@@ -4628,7 +4816,7 @@
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js?v=14').catch(function (err) {
+    navigator.serviceWorker.register('sw.js?v=15').catch(function (err) {
       console.warn('Service worker not registered:', err);
     });
   });
