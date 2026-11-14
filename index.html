@@ -51,6 +51,10 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
       <button type="button" data-tab="progress" id="tabProgress"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 17V10M10 17V7M15 17v-4M20 17V5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>Progress</span></button>
     </nav>
     <div class="header-actions">
+      <div class="install-slot">
+        <button type="button" class="btn ghost" id="installAppBtn" hidden>Install app</button>
+        <p class="hint" id="installHelp" hidden>On Android Chrome, open the browser menu and choose Install app or Add to Home screen. On iPhone Safari, tap Share, then Add to Home Screen.</p>
+      </div>
       <button type="button" id="timerChip" title="Timer running" aria-live="polite"></button>
       <div class="account">
         <button type="button" class="avatar" id="accountBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="accountMenu" aria-label="Account menu">
@@ -122,7 +126,7 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
         <button type="button" class="icon-btn mic-btn" id="myAffirmationMic" data-state="idle" aria-pressed="false" aria-label="Dictate your affirmation" hidden></button>
       </div>
       <div class="btn-row">
-        <button type="button" class="btn" id="myAffirmationAddBtn">Save mine</button>
+        <button type="button" class="btn secondary" id="myAffirmationAddBtn">Save mine</button>
       </div>
       <ul id="myAffirmationList" class="affirmation-list"></ul>
     </div>
@@ -349,6 +353,7 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
   <div class="modal-box">
     <h2 id="settingsTitle">Settings</h2>
     <p class="hint" id="accountStatus">Sign in with the same username and password on your phone and on the Life Admin computer so both stay in sync.</p>
+    <p class="hint" id="installHelpSettings">To install: on Android Chrome, open the browser menu and choose Install app or Add to Home screen. On iPhone Safari, tap Share, then Add to Home Screen.</p>
     <div class="btn-row" id="authButtons"></div>
     <div id="securityPanel"></div>
 
@@ -383,7 +388,7 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
 
     <hr class="section-rule">
     <h3>Backup</h3>
-    <p class="hint">Download a copy now and then. If this browser is cleared, a backup is how you get your days back.</p>
+    <p class="hint">Download every day, your planner, affirmations, Later list, and settings in one file. It does not include your password or tokens. On Android you can save that file to Google Drive.</p>
     <div class="btn-row">
       <button type="button" class="btn" id="exportBtn2">Download backup</button>
       <button type="button" class="btn secondary" id="importBtn2">Restore from backup</button>
@@ -455,7 +460,7 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
     <div id="eventCalendarActions" class="cal-actions-slot" hidden></div>
     <button type="button" class="btn" id="confirmAddBtn">Save event</button>
     <button type="button" class="btn secondary" id="cancelAddBtn">Cancel</button>
-    <button type="button" class="btn danger" id="deleteItemBtn" hidden>Delete event</button>
+    <button type="button" class="btn secondary" id="deleteItemBtn" hidden>Delete event</button>
   </div>
 </div>
 

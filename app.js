@@ -483,7 +483,6 @@
   function initTheme() {
     const saved = safeGet('theme', '');
     if (saved === 'dark' || saved === 'light') setTheme(saved);
-    else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) setTheme('dark');
     else setTheme('light');
   }
 
@@ -861,8 +860,14 @@
       tools.appendChild(remove);
       meta.appendChild(chips);
       meta.appendChild(tools);
+      const options = document.createElement('details');
+      options.className = 'task-options';
+      const summary = document.createElement('summary');
+      summary.textContent = 'Options';
+      options.appendChild(summary);
+      options.appendChild(meta);
       main.appendChild(line);
-      main.appendChild(meta);
+      main.appendChild(options);
       row.appendChild(main);
       // keep checkbox in the row visually at left - already in line
       wrap.appendChild(row);
@@ -1140,6 +1145,7 @@
   function deleteBrainLine(index) {
     const box = $('brainDump');
     if (!box) return;
+    if (!confirm('Delete this line?')) return;
     const previous = box.value;
     const lines = previous.split('\n');
     if (!lines[index] || !lines[index].trim()) return;
@@ -1153,6 +1159,7 @@
   }
 
   function deleteTop3(index) {
+    if (!confirm('Delete this task?')) return;
     const data = currentDayDataFromDom();
     const previous = data.top3.map(function (item) {
       return { text: item.text, done: item.done, estimate: item.estimate || '' };
@@ -1588,7 +1595,7 @@
     const items = Array.isArray(raw.items) ? raw.items.filter(function (item) {
       return item && item.id && String(item.text || '').trim();
     }) : [];
-    return { items: items, mixOwn: !!raw.mixOwn, savedAt: raw.savedAt || '' };
+    return { items: items, mixOwn: !!raw.mixOwn, savedAt: raw.savedAt || '', later: getLaterItems() };
   }
 
   function visibleAffirmations(store) {
@@ -1684,14 +1691,19 @@
   }
 
   function persistAffirmationStore(store) {
-    store.savedAt = new Date().toISOString();
-    saveJson('user-affirmations', {
+    store.savedAt = store.savedAt || new Date().toISOString();
+    const later = Array.isArray(store.later) ? normalizeLaterItems(store.later) : getLaterItems();
+    const payload = {
       items: store.items,
       mixOwn: !!store.mixOwn,
-      savedAt: store.savedAt
-    });
-    cloudUpsertAffirmations(store);
+      savedAt: store.savedAt,
+      later: later
+    };
+    saveJson('user-affirmations', payload);
+    saveJson('later-items', { items: later, savedAt: store.savedAt });
+    cloudUpsertAffirmations(payload);
     renderMyAffirmations();
+    renderLaterList();
     showAffirmation(($('affirmation') && $('affirmation').value) || '');
   }
 
@@ -1739,6 +1751,7 @@
     const store = getAffirmationStore();
     const item = store.items.filter(function (row) { return row.id === id && !row.deletedAt; })[0];
     if (!item) return;
+    if (!confirm('Delete this affirmation?')) return;
     const previous = { id: item.id, text: item.text, savedAt: item.savedAt || '', deletedAt: null };
     const stamp = new Date().toISOString();
     store.items = store.items.map(function (row) {
@@ -1766,15 +1779,46 @@
     showToast('Top 3 is full for now. You can edit one when you want.', 'info');
   }
 
+  function normalizeLaterItems(list) {
+    return (Array.isArray(list) ? list : []).filter(function (item) {
+      return item && String(item.text || '').trim();
+    }).map(function (item) {
+      return {
+        id: item.id || ('later-' + hashString(item.text + '|' + (item.savedAt || ''))),
+        text: String(item.text).trim(),
+        savedAt: item.savedAt || ''
+      };
+    });
+  }
+
+  function mergeLaterLists(localList, remoteList) {
+    const local = normalizeLaterItems(localList);
+    const remote = normalizeLaterItems(remoteList);
+    if (!local.length && remote.length) return remote;
+    if (!remote.length) return local;
+    const byId = {};
+    remote.forEach(function (item) { byId[item.id] = item; });
+    local.forEach(function (item) {
+      const prev = byId[item.id];
+      if (!prev || (Date.parse(item.savedAt || 0) || 0) >= (Date.parse(prev.savedAt || 0) || 0)) byId[item.id] = item;
+    });
+    return Object.keys(byId).map(function (id) { return byId[id]; });
+  }
+
   function getLaterItems() {
-    const raw = loadJson('later-items', {});
-    const items = Array.isArray(raw.items) ? raw.items : [];
-    return items.filter(function (item) { return item && String(item.text || '').trim(); });
+    const aff = loadJson('user-affirmations', {});
+    const legacy = loadJson('later-items', {});
+    return mergeLaterLists(normalizeLaterItems(legacy.items), normalizeLaterItems(aff.later));
   }
 
   function saveLaterItems(items) {
-    saveJson('later-items', { items: items, savedAt: new Date().toISOString() });
-    renderLaterList();
+    const cleaned = normalizeLaterItems(items);
+    const stamp = new Date().toISOString();
+    saveJson('later-items', { items: cleaned, savedAt: stamp });
+    const store = getAffirmationStore();
+    store.later = cleaned;
+    store.savedAt = stamp;
+    persistAffirmationStore(store);
   }
 
   function renderLaterList() {
@@ -2318,24 +2362,28 @@
   }
 
   function exportPayload() {
+    const affirmations = getAffirmationStore();
     return {
+      exportedAt: new Date().toISOString(),
       taskDays: getDayMap(),
       plannerEntries: getPlannerMap(),
+      affirmations: {
+        items: affirmations.items || [],
+        mixOwn: !!affirmations.mixOwn,
+        savedAt: affirmations.savedAt || ''
+      },
+      later: getLaterItems(),
       tileCompletions: loadJson('tile-completions', {}),
       tileVisited: loadJson('tile-visited', {}),
       plannerUpdated: loadJson('planner-updated', {}),
-      theme: safeGet('theme', 'light'),
-      exportedAt: new Date().toISOString()
+      supplementCatalog: loadJson('supplement-catalog', null),
+      theme: safeGet('theme', 'light')
     };
   }
 
   function exportData() {
-    const blob = new Blob([JSON.stringify(exportPayload(), null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'tinystarts-backup-' + todayKey() + '.json';
-    a.click();
-    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    const name = 'tinystarts-backup-' + todayKey() + '.json';
+    downloadFile(new File([JSON.stringify(exportPayload(), null, 2)], name, { type: 'application/json' }));
     showToast('Backup downloaded', 'success');
   }
 
@@ -2541,22 +2589,54 @@
     downloadFile(file);
   }
 
-  function newerDay(a, b) {
-    const at = Date.parse((a && a.savedAt) || 0) || 0;
-    const bt = Date.parse((b && b.savedAt) || 0) || 0;
-    return bt >= at ? b : a;
+  function backupDayKeys(obj) {
+    const src = (obj && (obj.taskDays || obj['task-days'])) || {};
+    return Object.keys(src).filter(function (key) { return !!parseDateKey(key); }).sort();
   }
 
-  function mergeImportedData(obj, preferIncomingIfTied) {
-    if (!obj || typeof obj !== 'object') throw new Error('That file doesn’t look like a TinyStarts backup.');
+  function validateBackupFile(obj) {
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) throw new Error('That file doesn’t look like a TinyStarts backup.');
+    const days = obj.taskDays || obj['task-days'];
+    if (days && (typeof days !== 'object' || Array.isArray(days))) throw new Error('The days in that file are not readable.');
+    const plans = obj.plannerEntries || obj['planner-entries'];
+    if (plans && (typeof plans !== 'object' || Array.isArray(plans))) throw new Error('The planner in that file is not readable.');
+    const hasDays = !!days;
+    const hasPlans = !!plans;
+    const hasAff = !!(obj.affirmations || obj.userAffirmations);
+    const hasLater = Array.isArray(obj.later) || (obj.affirmations && Array.isArray(obj.affirmations.later));
+    if (!hasDays && !hasPlans && !hasAff && !hasLater) throw new Error('That file doesn’t contain TinyStarts data.');
+  }
+
+  function backupSummaryText(obj) {
+    const keys = backupDayKeys(obj);
+    const countLabel = keys.length === 1 ? '1 day' : (keys.length + ' days');
+    const range = !keys.length ? 'no dated days' : (keys[0] === keys[keys.length - 1] ? keys[0] : (keys[0] + ' to ' + keys[keys.length - 1]));
+    return 'This backup has ' + countLabel + (keys.length ? ' (' + range + ')' : '') + '. Restore it? Your current days are saved in Restore earlier version first. A day that already has entries will not be replaced by an empty one.';
+  }
+
+  function mergePlannerImport(local, incoming) {
+    if (!incoming) return local;
+    if (!local) return incoming;
+    const incomingMeta = plannerMeta(incoming);
+    const incomingDeleted = !!(incomingMeta && incomingMeta.deleted);
+    if (visiblePlannerItems(local).length && !visiblePlannerItems(incoming).length && !incomingDeleted) return local;
+    return pickPlanner(local, incoming);
+  }
+
+  function mergeImportedData(obj) {
+    validateBackupFile(obj);
+    const currentDays = getDayMap();
+    Object.keys(currentDays).forEach(function (key) {
+      if (parseDateKey(key)) rememberDayBackup(key);
+    });
     const srcDays = obj.taskDays || obj['task-days'] || {};
     const days = getDayMap();
     Object.keys(srcDays).forEach(function (key) {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return;
+      if (!parseDateKey(key)) return;
       const incoming = srcDays[key];
       const local = days[key];
       if (!local) { days[key] = incoming; return; }
-      days[key] = newerDay(local, incoming);
+      days[key] = mergeDayRecord(local, incoming);
     });
     saveJson('task-days', days);
 
@@ -2564,16 +2644,29 @@
     const plans = getPlannerMap();
     const meta = loadJson('planner-updated', {});
     Object.keys(srcPlans).forEach(function (key) {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return;
-      const incoming = srcPlans[key];
-      plans[key] = pickPlanner(plans[key], incoming);
+      if (!parseDateKey(key)) return;
+      plans[key] = mergePlannerImport(plans[key], srcPlans[key]);
       const chosen = plannerMeta(plans[key]);
       if (chosen && chosen.savedAt) meta[key] = chosen.savedAt;
     });
     saveJson('planner-entries', plans);
     saveJson('planner-updated', meta);
-    if (obj.tileCompletions) saveJson('tile-completions', Object.assign(loadJson('tile-completions', {}), obj.tileCompletions));
-    if (obj.tileVisited) saveJson('tile-visited', Object.assign(loadJson('tile-visited', {}), obj.tileVisited));
+    if (obj.tileCompletions && typeof obj.tileCompletions === 'object') saveJson('tile-completions', Object.assign(loadJson('tile-completions', {}), obj.tileCompletions));
+    if (obj.tileVisited && typeof obj.tileVisited === 'object') saveJson('tile-visited', Object.assign(loadJson('tile-visited', {}), obj.tileVisited));
+    if (obj.supplementCatalog && typeof obj.supplementCatalog === 'object') saveJson('supplement-catalog', obj.supplementCatalog);
+    if (obj.theme === 'dark' || obj.theme === 'light') setTheme(obj.theme);
+
+    const incomingAff = obj.affirmations || obj.userAffirmations || {};
+    const localAff = getAffirmationStore();
+    const incomingItems = Array.isArray(incomingAff.items) ? incomingAff.items : [];
+    const keepItems = (!incomingItems.length && (localAff.items || []).length) ? localAff.items : (incomingItems.length ? incomingItems : localAff.items);
+    const later = mergeLaterLists(getLaterItems(), obj.later || incomingAff.later);
+    persistAffirmationStore({
+      items: keepItems || [],
+      mixOwn: incomingAff.mixOwn != null ? !!incomingAff.mixOwn : !!localAff.mixOwn,
+      savedAt: new Date().toISOString(),
+      later: later
+    });
   }
 
   function handleImportFile(file) {
@@ -2582,10 +2675,14 @@
     reader.onload = function () {
       try {
         const obj = JSON.parse(reader.result);
+        validateBackupFile(obj);
+        if (!confirm(backupSummaryText(obj))) return;
         mergeImportedData(obj);
         loadDay();
         renderPlanner();
-        showToast('Backup restored. Existing newer days were kept.', 'success', 5000);
+        renderLaterList();
+        pushLocalToCloud();
+        showToast('Backup restored. Days that already had entries were kept.', 'success', 5000);
       } catch (err) {
         showToast('Could not read that backup: ' + (err.message || 'invalid file'), 'error', 5000);
       }
@@ -3282,6 +3379,7 @@
     const items = loadPlannerItems(key);
     const deleted = items[index];
     if (!deleted) return;
+    if (!confirm('Delete this event?')) return;
     undoStack.push({ type: 'planner', key: key, index: index, data: deleted });
     items.splice(index, 1);
     savePlannerItems(key, items);
@@ -4239,11 +4337,14 @@
         const remote = affRes.data[0].data;
         const local = getAffirmationStore();
         const chosen = recordTime(remote) >= recordTime(local) ? remote : local;
+        const later = mergeLaterLists(getLaterItems(), remote.later);
         saveJson('user-affirmations', {
           items: Array.isArray(chosen.items) ? chosen.items : [],
           mixOwn: !!chosen.mixOwn,
-          savedAt: chosen.savedAt || ''
+          savedAt: chosen.savedAt || '',
+          later: later
         });
+        saveJson('later-items', { items: later, savedAt: chosen.savedAt || '' });
       }
       await logAudit('load_data');
     } catch (err) {
@@ -4278,7 +4379,12 @@
     if (!currentUser || !initSupabase()) return;
     sb.from('user_affirmations').upsert({
       user_id: currentUser.id,
-      data: { items: store.items || [], mixOwn: !!store.mixOwn, savedAt: store.savedAt || '' },
+      data: {
+        items: store.items || [],
+        mixOwn: !!store.mixOwn,
+        savedAt: store.savedAt || '',
+        later: normalizeLaterItems(store.later || getLaterItems())
+      },
       updated_at: new Date().toISOString()
     }).then(function (res) {
       if (res.error) console.warn('Cloud affirmation save failed:', res.error.message);
@@ -4784,8 +4890,59 @@
     });
   }
 
+  function appIsInstalled() {
+    try {
+      if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+      if (window.navigator && window.navigator.standalone) return true;
+    } catch (err) {}
+    return false;
+  }
+
+  let installPromptEvent = null;
+
+  function updateInstallUI() {
+    const btn = $('installAppBtn');
+    const help = $('installHelp');
+    const settingsHelp = $('installHelpSettings');
+    const installed = appIsInstalled();
+    if (btn) btn.hidden = installed;
+    if (installed) {
+      if (help) help.hidden = true;
+      if (settingsHelp) settingsHelp.hidden = true;
+    }
+  }
+
+  function initInstall() {
+    updateInstallUI();
+    window.addEventListener('beforeinstallprompt', function (event) {
+      event.preventDefault();
+      installPromptEvent = event;
+      updateInstallUI();
+      if ($('installHelp')) $('installHelp').hidden = true;
+    });
+    window.addEventListener('appinstalled', function () {
+      installPromptEvent = null;
+      updateInstallUI();
+    });
+    if ($('installAppBtn')) $('installAppBtn').addEventListener('click', function () {
+      if (!installPromptEvent) {
+        if ($('installHelp')) $('installHelp').hidden = false;
+        return;
+      }
+      const promptEvent = installPromptEvent;
+      installPromptEvent = null;
+      promptEvent.prompt();
+      const choice = promptEvent.userChoice;
+      if (choice && choice.then) {
+        choice.then(function () { updateInstallUI(); }).catch(function () { updateInstallUI(); });
+      }
+    });
+    if (!appIsInstalled() && !installPromptEvent && $('installHelp')) $('installHelp').hidden = false;
+  }
+
   function start() {
     initTheme();
+    initInstall();
     document.body.dataset.view = 'today';
     document.documentElement.dataset.gate = 'checking';
     ['click', 'keydown', 'touchstart'].forEach(function (type) {
@@ -4816,7 +4973,7 @@
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js?v=15').catch(function (err) {
+    navigator.serviceWorker.register('sw.js?v=16').catch(function (err) {
       console.warn('Service worker not registered:', err);
     });
   });
