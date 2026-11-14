@@ -135,6 +135,11 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
         <button type="button" class="icon-btn mic-btn" id="brainDumpMic" data-state="idle" aria-pressed="false" aria-label="Dictate brain dump" hidden></button>
       </div>
       <ul id="brainDumpLines" class="brain-lines"></ul>
+      <div id="laterCard" class="later-lot">
+        <h3 class="later-title">Later</h3>
+        <p class="hint">Not tied to a day. Park something here, then pull it into Today when you want.</p>
+        <ul id="laterList" class="brain-lines"></ul>
+      </div>
       <div class="btn-row">
         <button type="button" class="btn secondary" id="suggestTop3Btn">Suggest from this</button>
       </div>
@@ -174,6 +179,17 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
       <h3 id="top3Title">Today&#8217;s Top 3</h3>
       <p class="hint" id="top3Hint">Write the next concrete step, not the whole project.</p>
       <div id="top3"></div>
+      <div class="first-step" id="firstStepBox">
+        <label class="field" for="firstStepInput">First tiny step</label>
+        <input type="text" id="firstStepInput" name="firstStepInput" placeholder="The very first move" autocomplete="off">
+        <div class="btn-row">
+          <button type="button" class="btn secondary focus-mins" data-mins="5">5 min</button>
+          <button type="button" class="btn secondary focus-mins" data-mins="15">15 min</button>
+          <button type="button" class="btn secondary focus-mins" data-mins="25">25 min</button>
+          <button type="button" class="btn ghost" id="focusTimerStop">Stop</button>
+        </div>
+        <p id="focusTimerDisplay" aria-live="polite"></p>
+      </div>
       <div class="btn-row">
         <button type="button" class="btn secondary" id="addAnotherTask" hidden>+ Add another</button>
       </div>
