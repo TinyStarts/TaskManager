@@ -506,12 +506,16 @@
   }
   .today-pill[hidden] { display: none !important; }
   #jumpTodayBtn { min-height: 36px; }
-  .day-progress { margin: 6px 0 0; color: var(--muted); font-size: 0.85rem; }
-  .trophy-card { position: relative; }
-  .trophy {
-    position: absolute; top: 10px; right: 12px; font-size: 1.15rem; line-height: 1; z-index: 2;
+  .quiet-ack { margin: 4px 0 0; color: var(--muted); font-size: 0.85rem; }
+  .day-backup { margin-top: 8px; }
+  .backup-version {
+    display: flex; align-items: center; gap: 8px; justify-content: space-between;
+    padding: 8px 0; border-top: 1px solid var(--line);
   }
-  .tile-status { margin: 0 0 6px; color: var(--muted); font-size: 0.78rem; }
+  .backup-version p { margin: 0; min-width: 0; }
+  .backup-version .when { display: block; color: var(--muted); font-size: 0.78rem; }
+  #showMoreToday { width: 100%; margin: 0 0 14px; }
+  #todayView[data-energy="low"]:not([data-more="open"]) .low-energy-extra { display: none !important; }
   .brain-line-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
   .brain-line-actions button { min-height: 44px; }
   .saved-indicator { margin: 0; color: var(--muted); font-size: 0.8rem; min-height: 1.2em; }

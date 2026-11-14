@@ -94,15 +94,19 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
         <button type="button" class="visually-hidden" id="nextDayBtn">Next day</button>
       </div>
       <p id="todayTagline">Start with your energy, then one small next action.</p>
-      <p class="day-progress" id="dayProgress" aria-live="polite"></p>
+      <p class="quiet-ack" id="quietAck" hidden>Noted.</p>
       <p class="saved-indicator" id="saveStatus" role="status" aria-live="polite" data-state=""></p>
       <div id="dayMenu" class="day-menu" hidden role="menu">
         <button type="button" class="btn secondary" id="clearDayBtn" role="menuitem">Clear this day</button>
       </div>
       <div id="dayPicker" class="day-picker" hidden role="dialog" aria-modal="false" aria-label="Choose a day"></div>
+      <div id="dayBackupCard" class="day-backup" hidden>
+        <button type="button" class="btn ghost" id="restoreEarlierBtn" aria-expanded="false" aria-controls="restoreEarlierList">Restore earlier version</button>
+        <div id="restoreEarlierList" hidden></div>
+      </div>
     </div>
 
-    <div class="card" id="affirmationCard">
+    <div class="card low-energy-extra" id="affirmationCard">
       <h3>Affirmation</h3>
       <p class="hint">One line for this day. It stays the same until tomorrow.</p>
       <p id="affirmationText"></p>
@@ -123,10 +127,8 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
       <ul id="myAffirmationList" class="affirmation-list"></ul>
     </div>
 
-    <div class="card compact trophy-card" id="brainDumpCard">
-      <span class="trophy" id="trophy-brain" hidden aria-hidden="true">🏆</span>
+    <div class="card compact low-energy-extra" id="brainDumpCard">
       <h3>Quick brain dump</h3>
-      <p class="tile-status" id="status-brain">not yet</p>
       <p class="hint">Optional. Get it out of your head before you pick today&#8217;s actions.</p>
       <div class="field-with-mic">
         <textarea id="brainDump" name="brainDump" placeholder="Dump everything on your mind&#8230;"></textarea>
@@ -139,10 +141,8 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
       <div id="suggestions" class="hint"></div>
     </div>
 
-    <div class="card compact trophy-card" id="energyCard">
-      <span class="trophy" id="trophy-energy" hidden aria-hidden="true">🏆</span>
+    <div class="card compact" id="energyCard">
       <h3>How&#8217;s your energy?</h3>
-      <p class="tile-status" id="status-energy">not yet</p>
       <p class="hint">This sets how many tasks to show. You can always add another.</p>
       <div class="energy" id="energyBtns">
         <button type="button" id="energy-low" data-level="Low" aria-pressed="false">Low</button>
@@ -151,10 +151,8 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
       </div>
     </div>
 
-    <div class="card compact trophy-card" id="medsCard">
-      <span class="trophy" id="trophy-meds" hidden aria-hidden="true">🏆</span>
+    <div class="card compact" id="medsCard">
       <h3>Meds</h3>
-      <p class="tile-status" id="status-meds">not yet</p>
       <p class="hint">A simple check-off for today. Nothing else is attached to this.</p>
       <div class="meds-row">
         <label class="check-pill" for="meds-morning">
@@ -170,12 +168,10 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
       <div class="meds-row" id="supplementList"></div>
     </div>
 
-    <div id="carryPrompt"></div>
+    <div id="carryPrompt" class="low-energy-extra"></div>
 
-    <div class="card trophy-card" id="top3Card">
-      <span class="trophy" id="trophy-top3" hidden aria-hidden="true">🏆</span>
+    <div class="card" id="top3Card">
       <h3 id="top3Title">Today&#8217;s Top 3</h3>
-      <p class="tile-status" id="status-top3">not yet</p>
       <p class="hint" id="top3Hint">Write the next concrete step, not the whole project.</p>
       <div id="top3"></div>
       <div class="btn-row">
@@ -183,13 +179,15 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
       </div>
     </div>
 
-    <div class="card" id="dayScheduleCard">
+    <button type="button" class="btn secondary" id="showMoreToday" hidden aria-expanded="false">Show more</button>
+
+    <div class="card low-energy-extra" id="dayScheduleCard">
       <h3>Schedule this day</h3>
       <p class="hint" id="dayEventsHint">Events saved on this date.</p>
       <div id="dayEvents"></div>
     </div>
 
-    <details class="fold" id="microFold">
+    <details class="fold low-energy-extra" id="microFold">
       <summary>Micro-starts</summary>
       <div class="fold-body">
         <p class="hint">Tiny tasks under five minutes. Check them off as you go.</p>
@@ -206,7 +204,7 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
       </div>
     </details>
 
-    <details class="fold" id="helpersFold">
+    <details class="fold low-energy-extra" id="helpersFold">
       <summary>Quick helpers</summary>
       <div class="fold-body">
         <div class="btn-row">
@@ -227,7 +225,7 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
       </div>
     </details>
 
-    <details class="fold" id="eodFold">
+    <details class="fold low-energy-extra" id="eodFold">
       <summary>End of day</summary>
       <div class="fold-body">
         <p class="hint">Any progress counts. You can leave things for tomorrow.</p>
