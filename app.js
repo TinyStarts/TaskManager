@@ -2362,24 +2362,28 @@
   }
 
   function exportPayload() {
+    const affirmations = getAffirmationStore();
     return {
+      exportedAt: new Date().toISOString(),
       taskDays: getDayMap(),
       plannerEntries: getPlannerMap(),
+      affirmations: {
+        items: affirmations.items || [],
+        mixOwn: !!affirmations.mixOwn,
+        savedAt: affirmations.savedAt || ''
+      },
+      later: getLaterItems(),
       tileCompletions: loadJson('tile-completions', {}),
       tileVisited: loadJson('tile-visited', {}),
       plannerUpdated: loadJson('planner-updated', {}),
-      theme: safeGet('theme', 'light'),
-      exportedAt: new Date().toISOString()
+      supplementCatalog: loadJson('supplement-catalog', null),
+      theme: safeGet('theme', 'light')
     };
   }
 
   function exportData() {
-    const blob = new Blob([JSON.stringify(exportPayload(), null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'tinystarts-backup-' + todayKey() + '.json';
-    a.click();
-    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    const name = 'tinystarts-backup-' + todayKey() + '.json';
+    downloadFile(new File([JSON.stringify(exportPayload(), null, 2)], name, { type: 'application/json' }));
     showToast('Backup downloaded', 'success');
   }
 
@@ -2585,22 +2589,54 @@
     downloadFile(file);
   }
 
-  function newerDay(a, b) {
-    const at = Date.parse((a && a.savedAt) || 0) || 0;
-    const bt = Date.parse((b && b.savedAt) || 0) || 0;
-    return bt >= at ? b : a;
+  function backupDayKeys(obj) {
+    const src = (obj && (obj.taskDays || obj['task-days'])) || {};
+    return Object.keys(src).filter(function (key) { return !!parseDateKey(key); }).sort();
   }
 
-  function mergeImportedData(obj, preferIncomingIfTied) {
-    if (!obj || typeof obj !== 'object') throw new Error('That file doesn’t look like a TinyStarts backup.');
+  function validateBackupFile(obj) {
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) throw new Error('That file doesn’t look like a TinyStarts backup.');
+    const days = obj.taskDays || obj['task-days'];
+    if (days && (typeof days !== 'object' || Array.isArray(days))) throw new Error('The days in that file are not readable.');
+    const plans = obj.plannerEntries || obj['planner-entries'];
+    if (plans && (typeof plans !== 'object' || Array.isArray(plans))) throw new Error('The planner in that file is not readable.');
+    const hasDays = !!days;
+    const hasPlans = !!plans;
+    const hasAff = !!(obj.affirmations || obj.userAffirmations);
+    const hasLater = Array.isArray(obj.later) || (obj.affirmations && Array.isArray(obj.affirmations.later));
+    if (!hasDays && !hasPlans && !hasAff && !hasLater) throw new Error('That file doesn’t contain TinyStarts data.');
+  }
+
+  function backupSummaryText(obj) {
+    const keys = backupDayKeys(obj);
+    const countLabel = keys.length === 1 ? '1 day' : (keys.length + ' days');
+    const range = !keys.length ? 'no dated days' : (keys[0] === keys[keys.length - 1] ? keys[0] : (keys[0] + ' to ' + keys[keys.length - 1]));
+    return 'This backup has ' + countLabel + (keys.length ? ' (' + range + ')' : '') + '. Restore it? Your current days are saved in Restore earlier version first. A day that already has entries will not be replaced by an empty one.';
+  }
+
+  function mergePlannerImport(local, incoming) {
+    if (!incoming) return local;
+    if (!local) return incoming;
+    const incomingMeta = plannerMeta(incoming);
+    const incomingDeleted = !!(incomingMeta && incomingMeta.deleted);
+    if (visiblePlannerItems(local).length && !visiblePlannerItems(incoming).length && !incomingDeleted) return local;
+    return pickPlanner(local, incoming);
+  }
+
+  function mergeImportedData(obj) {
+    validateBackupFile(obj);
+    const currentDays = getDayMap();
+    Object.keys(currentDays).forEach(function (key) {
+      if (parseDateKey(key)) rememberDayBackup(key);
+    });
     const srcDays = obj.taskDays || obj['task-days'] || {};
     const days = getDayMap();
     Object.keys(srcDays).forEach(function (key) {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return;
+      if (!parseDateKey(key)) return;
       const incoming = srcDays[key];
       const local = days[key];
       if (!local) { days[key] = incoming; return; }
-      days[key] = newerDay(local, incoming);
+      days[key] = mergeDayRecord(local, incoming);
     });
     saveJson('task-days', days);
 
@@ -2608,16 +2644,29 @@
     const plans = getPlannerMap();
     const meta = loadJson('planner-updated', {});
     Object.keys(srcPlans).forEach(function (key) {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return;
-      const incoming = srcPlans[key];
-      plans[key] = pickPlanner(plans[key], incoming);
+      if (!parseDateKey(key)) return;
+      plans[key] = mergePlannerImport(plans[key], srcPlans[key]);
       const chosen = plannerMeta(plans[key]);
       if (chosen && chosen.savedAt) meta[key] = chosen.savedAt;
     });
     saveJson('planner-entries', plans);
     saveJson('planner-updated', meta);
-    if (obj.tileCompletions) saveJson('tile-completions', Object.assign(loadJson('tile-completions', {}), obj.tileCompletions));
-    if (obj.tileVisited) saveJson('tile-visited', Object.assign(loadJson('tile-visited', {}), obj.tileVisited));
+    if (obj.tileCompletions && typeof obj.tileCompletions === 'object') saveJson('tile-completions', Object.assign(loadJson('tile-completions', {}), obj.tileCompletions));
+    if (obj.tileVisited && typeof obj.tileVisited === 'object') saveJson('tile-visited', Object.assign(loadJson('tile-visited', {}), obj.tileVisited));
+    if (obj.supplementCatalog && typeof obj.supplementCatalog === 'object') saveJson('supplement-catalog', obj.supplementCatalog);
+    if (obj.theme === 'dark' || obj.theme === 'light') setTheme(obj.theme);
+
+    const incomingAff = obj.affirmations || obj.userAffirmations || {};
+    const localAff = getAffirmationStore();
+    const incomingItems = Array.isArray(incomingAff.items) ? incomingAff.items : [];
+    const keepItems = (!incomingItems.length && (localAff.items || []).length) ? localAff.items : (incomingItems.length ? incomingItems : localAff.items);
+    const later = mergeLaterLists(getLaterItems(), obj.later || incomingAff.later);
+    persistAffirmationStore({
+      items: keepItems || [],
+      mixOwn: incomingAff.mixOwn != null ? !!incomingAff.mixOwn : !!localAff.mixOwn,
+      savedAt: new Date().toISOString(),
+      later: later
+    });
   }
 
   function handleImportFile(file) {
@@ -2626,10 +2675,14 @@
     reader.onload = function () {
       try {
         const obj = JSON.parse(reader.result);
+        validateBackupFile(obj);
+        if (!confirm(backupSummaryText(obj))) return;
         mergeImportedData(obj);
         loadDay();
         renderPlanner();
-        showToast('Backup restored. Existing newer days were kept.', 'success', 5000);
+        renderLaterList();
+        pushLocalToCloud();
+        showToast('Backup restored. Days that already had entries were kept.', 'success', 5000);
       } catch (err) {
         showToast('Could not read that backup: ' + (err.message || 'invalid file'), 'error', 5000);
       }
