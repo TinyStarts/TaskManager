@@ -792,7 +792,7 @@
       input.id = 'top3-text-' + n;
       input.name = 'top3-text-' + n;
       input.value = item.text;
-      input.placeholder = placeholders[i] || 'Another small action…';
+      input.placeholder = (currentEnergy() === 'Low' && n === 1) ? 'Verb, then the first step' : (placeholders[i] || 'Another small action…');
       input.setAttribute('aria-label', labels[i] || ('Priority ' + n));
       cb.addEventListener('change', function () {
         row.classList.toggle('done', cb.checked);
@@ -967,6 +967,8 @@
     renderHistory();
     renderMyAffirmations();
     updateEditingBanner();
+    renderDayBackups();
+    applyLowEnergyMode();
   }
 
   function maybePrefillTomorrow() {
@@ -987,7 +989,8 @@
     if (jump) jump.hidden = onToday;
     if (pill) pill.hidden = !onToday;
     updateTodayTagline();
-    updateDayTrophies();
+    updateQuietAck();
+    applyLowEnergyMode();
   }
 
   function updateTodayTagline() {
@@ -1019,7 +1022,7 @@
   }
 
   function scheduleSave() {
-    updateDayTrophies();
+    updateQuietAck();
     dayDirty = true;
     setSaveStatus('saving', 'Saving…');
     clearTimeout(saveTimer);
@@ -1419,6 +1422,7 @@
   }
 
   function applyEnergySlots() {
+    const low = currentEnergy() === 'Low';
     const cap = energySlotCount(currentEnergy());
     const rows = document.querySelectorAll('#top3 .task-row');
     let lastFilled = -1;
@@ -1426,13 +1430,14 @@
       const input = row.querySelector('input[type="text"]');
       if (input && input.value.trim()) lastFilled = i;
     });
-    const showUntil = Math.max(cap, lastFilled + 1);
+    const showUntil = low ? 1 : Math.max(cap, lastFilled + 1);
     rows.forEach(function (row, i) {
       row.classList.toggle('hidden-slot', i >= showUntil);
     });
     const addBtn = $('addAnotherTask');
-    if (addBtn) addBtn.hidden = showUntil >= rows.length;
+    if (addBtn) addBtn.hidden = low || showUntil >= rows.length;
     updateTodayTagline();
+    applyLowEnergyMode();
   }
 
   function revealAnotherTask() {
@@ -1715,30 +1720,114 @@
     showToast('Added to the planner.', 'success');
   }
 
-  function setTrophy(name, on) {
-    const trophy = $('trophy-' + name);
-    const status = $('status-' + name);
-    if (trophy) trophy.hidden = !on;
-    if (status) status.textContent = on ? '' : 'not yet';
-  }
-
-  function updateDayTrophies() {
-    const energyOn = !!document.querySelector('#energyBtns button.active');
-    const medsOn = !!($('meds-morning') && $('meds-morning').checked) && !!($('meds-afternoon') && $('meds-afternoon').checked);
+  function updateQuietAck() {
+    const el = $('quietAck');
+    if (!el) return;
+    const energyOn = !!currentEnergy();
+    const medsOn = !!($('meds-morning') && $('meds-morning').checked)
+      || !!($('meds-afternoon') && $('meds-afternoon').checked)
+      || !!document.querySelector('#supplementList input:checked');
     const dumpOn = String(($('brainDump') && $('brainDump').value) || '').split('\n').some(function (line) { return !!line.trim(); });
-    let filled = 0;
+    let anyTop = false;
     for (let n = 1; n <= 3; n++) {
       const input = $('top3-text-' + n);
-      if (input && String(input.value || '').trim()) filled++;
+      if (input && String(input.value || '').trim()) anyTop = true;
     }
-    const topOn = filled === 3;
-    setTrophy('energy', energyOn);
-    setTrophy('meds', medsOn);
-    setTrophy('brain', dumpOn);
-    setTrophy('top3', topOn);
-    const done = [energyOn, medsOn, dumpOn, topOn].filter(Boolean).length;
-    const summary = $('dayProgress');
-    if (summary) summary.textContent = done + ' of 4 done';
+    el.hidden = !(energyOn || medsOn || dumpOn || anyTop);
+  }
+
+  function applyLowEnergyMode() {
+    const view = $('todayView');
+    const btn = $('showMoreToday');
+    if (!view) return;
+    const low = currentEnergy() === 'Low';
+    if (low) view.dataset.energy = 'low';
+    else {
+      delete view.dataset.energy;
+      delete view.dataset.more;
+    }
+    if (btn) {
+      btn.hidden = !low;
+      const open = view.dataset.more === 'open';
+      btn.textContent = open ? 'Show less' : 'Show more';
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    const title = $('top3Title');
+    const hint = $('top3Hint');
+    if (low) {
+      if (title) title.textContent = 'One thing';
+      if (hint) hint.textContent = 'A verb, then the first step. That’s enough.';
+    }
+  }
+
+  function toggleShowMore() {
+    const view = $('todayView');
+    if (!view) return;
+    view.dataset.more = view.dataset.more === 'open' ? '' : 'open';
+    if (!view.dataset.more) delete view.dataset.more;
+    applyLowEnergyMode();
+  }
+
+  function dayBackupList(key) {
+    const all = loadJson('task-days-backup', {});
+    return Array.isArray(all[key]) ? all[key] : [];
+  }
+
+  function backupPreview(data) {
+    const top = normalizeTop3(data && data.top3).map(function (item) { return String(item.text || '').trim(); }).filter(Boolean)[0];
+    if (top) return top;
+    const line = String((data && data.brainDump) || '').split('\n').map(function (part) { return part.trim(); }).filter(Boolean)[0];
+    if (line) return line;
+    if (data && data.energy) return 'Energy: ' + data.energy;
+    return 'Saved version';
+  }
+
+  function backupWhen(iso) {
+    const date = new Date(iso || '');
+    if (isNaN(date.getTime())) return 'Earlier';
+    return date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+
+  function renderDayBackups() {
+    const card = $('dayBackupCard');
+    const list = $('restoreEarlierList');
+    if (!card || !list) return;
+    const versions = dayBackupList(activeKey());
+    card.hidden = !versions.length;
+    list.innerHTML = '';
+    versions.forEach(function (version, index) {
+      const row = document.createElement('div');
+      row.className = 'backup-version';
+      const copy = document.createElement('p');
+      const when = document.createElement('span');
+      when.className = 'when';
+      when.textContent = backupWhen(version && (version.savedAt || (version.data && version.data.savedAt)));
+      const preview = document.createElement('span');
+      preview.textContent = backupPreview(version && version.data);
+      copy.appendChild(when);
+      copy.appendChild(preview);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn secondary';
+      btn.id = 'restore-version-' + (index + 1);
+      btn.textContent = 'Restore';
+      btn.addEventListener('click', function () { restoreDayVersion(index); });
+      row.appendChild(copy);
+      row.appendChild(btn);
+      list.appendChild(row);
+    });
+  }
+
+  function restoreDayVersion(index) {
+    const versions = dayBackupList(activeKey());
+    const version = versions[index];
+    if (!version || !version.data || isDeletedRecord(version.data)) return;
+    if (!confirm('Restore this earlier version? The current version stays in the backup list.')) return;
+    fillDayForm(version.data);
+    dayDirty = true;
+    saveDay();
+    renderDayBackups();
+    showToast('Earlier version restored.', 'success');
   }
 
   function suggestTop3() {
@@ -4283,6 +4372,14 @@
       applyEnergySlots();
       scheduleSave();
     });
+    if ($('showMoreToday')) $('showMoreToday').addEventListener('click', toggleShowMore);
+    if ($('restoreEarlierBtn')) $('restoreEarlierBtn').addEventListener('click', function () {
+      const list = $('restoreEarlierList');
+      if (!list) return;
+      const open = list.hidden;
+      list.hidden = !open;
+      $('restoreEarlierBtn').setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
     if ($('affirmationUseBtn')) $('affirmationUseBtn').addEventListener('click', useShownAffirmation);
     if ($('myAffirmationAddBtn')) $('myAffirmationAddBtn').addEventListener('click', addOrUpdateMyAffirmation);
     if ($('myAffirmationInput')) $('myAffirmationInput').addEventListener('keydown', function (e) {
@@ -4531,7 +4628,7 @@
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js?v=13').catch(function (err) {
+    navigator.serviceWorker.register('sw.js?v=14').catch(function (err) {
       console.warn('Service worker not registered:', err);
     });
   });
