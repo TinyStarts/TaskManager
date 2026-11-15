@@ -140,14 +140,23 @@
   .tagline { color: var(--muted); margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
   .header-tagline { display: none; }
   .header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 2px; flex: 1 1 auto; min-width: 0; margin-left: auto; }
-  .status-slot { display: flex; align-items: center; min-width: 0; max-width: 11rem; }
-  .status-chip {
-    display: none; align-items: center; max-width: 100%; height: 48px; margin: 0;
-    padding: 0 12px; border-radius: 999px; background: var(--accent-soft); color: var(--accent);
-    font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  .status-slot {
+    display: flex; align-items: center; justify-content: flex-end;
+    flex: 0 0 auto; width: 0; min-width: 0; overflow: hidden;
   }
-  #saveStatus.show, #quietAck:not([hidden]) { display: inline-flex; }
-  #saveStatus.show ~ #quietAck { display: none !important; }
+  .status-slot.hold { width: 6.25rem; min-width: 6.25rem; overflow: visible; }
+  .status-slot.hold[data-state="error"] { width: auto; max-width: 11rem; }
+  .status-chip {
+    display: inline-flex; align-items: center; justify-content: center;
+    max-width: 100%; height: 48px; margin: 0; padding: 0 12px;
+    border-radius: 999px; background: var(--accent-soft); color: var(--accent);
+    font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    opacity: 0; transition: opacity 180ms ease;
+  }
+  .status-chip.show { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) {
+    .status-chip { transition: none; }
+  }
   #saveStatus[data-state="saving"], #saveStatus[data-state="error"] { background: var(--bg-accent); color: var(--muted); }
   #installAppBtn { color: var(--accent); flex: none; }
   #installAppBtn[hidden] { display: none !important; }
@@ -596,7 +605,6 @@
   }
   .today-pill[hidden] { display: none !important; }
   #jumpTodayBtn { min-height: 48px; }
-  .quiet-ack { color: var(--accent); }
   .day-backup { margin-top: 8px; }
   .backup-version {
     display: flex; align-items: center; gap: 8px; justify-content: space-between;
@@ -784,7 +792,7 @@
   #authStatus { min-height: 1.4em; margin-top: 12px; color: var(--muted); font-size: 0.92rem; }
   #authStatus.error { color: var(--danger, #9c3d32); }
   #loginCard .btn { margin-top: 6px; }
-  .hint, .tagline, .quiet, label.field, footer.note, #saveStatus, .saved-indicator, .quiet-ack,
+  .hint, .tagline, .quiet, label.field, footer.note, #saveStatus, .saved-indicator,
   .account-who, .day-event .when, .backup-version .when, .wins-list .win-date, .hour-label,
   .all-day-label, .gutter-label, .dow-cell .name, .mini-dow, .month-board .mb-dow, .dow,
   .event-block .ev-time, .month-event, .month-more, .all-day-chip, .chart .bar-label,

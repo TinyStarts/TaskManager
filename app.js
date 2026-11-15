@@ -528,25 +528,38 @@
   let saveSeq = 0;
   let saveRetryTimer = null;
   let pendingCloudSave = null;
+  let saveStatusTimer = null;
 
   function setSaveStatus(state, text) {
     const el = $('saveStatus');
     if (!el) return;
+    clearTimeout(saveStatusTimer);
+    const slot = el.parentElement;
     el.dataset.state = state || '';
+    if (slot) slot.dataset.state = state || '';
     el.textContent = text || '';
     el.title = text || '';
-    el.classList.toggle('show', !!text);
-  }
-
-  function savedClock(date) {
-    return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    if (text) {
+      if (slot) slot.classList.add('hold');
+      el.classList.add('show');
+      el.removeAttribute('aria-hidden');
+    } else {
+      el.classList.remove('show');
+      el.setAttribute('aria-hidden', 'true');
+    }
+    if (state === 'saved') {
+      saveStatusTimer = setTimeout(function () {
+        el.classList.remove('show');
+        el.setAttribute('aria-hidden', 'true');
+      }, 2000);
+    }
   }
 
   function finishCloudSave(seq, ok) {
     if (seq !== saveSeq) return;
     if (ok) {
       pendingCloudSave = null;
-      setSaveStatus('saved', 'Saved ' + savedClock(new Date()));
+      setSaveStatus('saved', 'Saved');
       return;
     }
     setSaveStatus('error', 'Not saved yet, will retry');
@@ -1017,7 +1030,6 @@
     if (jump) jump.hidden = onToday;
     if (pill) pill.hidden = !onToday;
     updateTodayTagline();
-    updateQuietAck();
     applyLowEnergyMode();
   }
 
@@ -1050,7 +1062,6 @@
   }
 
   function scheduleSave() {
-    updateQuietAck();
     dayDirty = true;
     setSaveStatus('saving', 'Saving…');
     clearTimeout(saveTimer);
@@ -1956,22 +1967,6 @@
     savePlannerItems(key, items);
     if (typeof renderPlanner === 'function') renderPlanner();
     showToast('Added to the planner.', 'success');
-  }
-
-  function updateQuietAck() {
-    const el = $('quietAck');
-    if (!el) return;
-    const energyOn = !!currentEnergy();
-    const medsOn = !!($('meds-morning') && $('meds-morning').checked)
-      || !!($('meds-afternoon') && $('meds-afternoon').checked)
-      || !!document.querySelector('#supplementList input:checked');
-    const dumpOn = String(($('brainDump') && $('brainDump').value) || '').split('\n').some(function (line) { return !!line.trim(); });
-    let anyTop = false;
-    for (let n = 1; n <= 3; n++) {
-      const input = $('top3-text-' + n);
-      if (input && String(input.value || '').trim()) anyTop = true;
-    }
-    el.hidden = !(energyOn || medsOn || dumpOn || anyTop);
   }
 
   function applyLowEnergyMode() {
@@ -4997,7 +4992,7 @@
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js?v=19').catch(function (err) {
+    navigator.serviceWorker.register('sw.js?v=20').catch(function (err) {
       console.warn('Service worker not registered:', err);
     });
   });
