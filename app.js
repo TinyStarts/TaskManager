@@ -498,7 +498,7 @@
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'btn';
-      btn.style.cssText = 'width:auto;min-height:32px;padding:4px 10px;background:#fff;color:#1f2930;';
+      btn.style.cssText = 'width:auto;min-height:48px;padding:8px 12px;background:var(--card);color:var(--ink);';
       btn.textContent = 'Undo';
       btn.addEventListener('click', function () { undoLast(); toast.remove(); });
       toast.appendChild(btn);
@@ -4902,13 +4902,12 @@
 
   function updateInstallUI() {
     const btn = $('installAppBtn');
-    const help = $('installHelp');
     const settingsHelp = $('installHelpSettings');
     const installed = appIsInstalled();
     if (btn) btn.hidden = installed;
     if (installed) {
-      if (help) help.hidden = true;
       if (settingsHelp) settingsHelp.hidden = true;
+      closeModal('installSheet');
     }
   }
 
@@ -4918,26 +4917,25 @@
       event.preventDefault();
       installPromptEvent = event;
       updateInstallUI();
-      if ($('installHelp')) $('installHelp').hidden = true;
     });
     window.addEventListener('appinstalled', function () {
       installPromptEvent = null;
       updateInstallUI();
     });
     if ($('installAppBtn')) $('installAppBtn').addEventListener('click', function () {
-      if (!installPromptEvent) {
-        if ($('installHelp')) $('installHelp').hidden = false;
+      if (installPromptEvent) {
+        const promptEvent = installPromptEvent;
+        installPromptEvent = null;
+        promptEvent.prompt();
+        const choice = promptEvent.userChoice;
+        if (choice && choice.then) {
+          choice.then(function () { updateInstallUI(); }).catch(function () { updateInstallUI(); });
+        }
         return;
       }
-      const promptEvent = installPromptEvent;
-      installPromptEvent = null;
-      promptEvent.prompt();
-      const choice = promptEvent.userChoice;
-      if (choice && choice.then) {
-        choice.then(function () { updateInstallUI(); }).catch(function () { updateInstallUI(); });
-      }
+      openModal('installSheet');
     });
-    if (!appIsInstalled() && !installPromptEvent && $('installHelp')) $('installHelp').hidden = false;
+    if ($('closeInstallSheet')) $('closeInstallSheet').addEventListener('click', function () { closeModal('installSheet'); });
   }
 
   function start() {
@@ -4973,7 +4971,7 @@
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js?v=16').catch(function (err) {
+    navigator.serviceWorker.register('sw.js?v=17').catch(function (err) {
       console.warn('Service worker not registered:', err);
     });
   });
