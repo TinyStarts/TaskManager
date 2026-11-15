@@ -486,6 +486,22 @@
     else setTheme('light');
   }
 
+  function setCalmBackground(on) {
+    const calm = !!on;
+    document.documentElement.setAttribute('data-calm', calm ? 'on' : 'off');
+    safeSet('calm-bg', calm ? 'on' : 'off');
+    const box = $('calmBgToggle');
+    if (box) box.checked = calm;
+    const menu = $('calmBgMenuBtn');
+    if (menu) {
+      menu.setAttribute('aria-pressed', calm ? 'true' : 'false');
+      menu.textContent = calm ? 'Calm background: on' : 'Calm background: off';
+    }
+  }
+  function initCalm() {
+    setCalmBackground(safeGet('calm-bg', 'off') === 'on');
+  }
+
   function showToast(message, type, duration, undo) {
     const container = $('toastContainer');
     if (!container) return;
@@ -2378,7 +2394,8 @@
       tileVisited: loadJson('tile-visited', {}),
       plannerUpdated: loadJson('planner-updated', {}),
       supplementCatalog: loadJson('supplement-catalog', null),
-      theme: safeGet('theme', 'light')
+      theme: safeGet('theme', 'light'),
+      calmBackground: safeGet('calm-bg', 'off')
     };
   }
 
@@ -2656,6 +2673,7 @@
     if (obj.tileVisited && typeof obj.tileVisited === 'object') saveJson('tile-visited', Object.assign(loadJson('tile-visited', {}), obj.tileVisited));
     if (obj.supplementCatalog && typeof obj.supplementCatalog === 'object') saveJson('supplement-catalog', obj.supplementCatalog);
     if (obj.theme === 'dark' || obj.theme === 'light') setTheme(obj.theme);
+    if (obj.calmBackground === 'on' || obj.calmBackground === 'off') setCalmBackground(obj.calmBackground === 'on');
 
     const incomingAff = obj.affirmations || obj.userAffirmations || {};
     const localAff = getAffirmationStore();
@@ -4624,6 +4642,12 @@
       setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
       closeAccountMenu();
     });
+    if ($('calmBgMenuBtn')) $('calmBgMenuBtn').addEventListener('click', function () {
+      setCalmBackground(document.documentElement.getAttribute('data-calm') !== 'on');
+    });
+    if ($('calmBgToggle')) $('calmBgToggle').addEventListener('change', function () {
+      setCalmBackground(!!$('calmBgToggle').checked);
+    });
     $('settingsBtn').addEventListener('click', function () {
       closeAccountMenu();
       updateAccountUI();
@@ -4941,6 +4965,7 @@
 
   function start() {
     initTheme();
+    initCalm();
     initInstall();
     document.body.dataset.view = 'today';
     document.documentElement.dataset.gate = 'checking';
@@ -4972,7 +4997,7 @@
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js?v=18').catch(function (err) {
+    navigator.serviceWorker.register('sw.js?v=19').catch(function (err) {
       console.warn('Service worker not registered:', err);
     });
   });
