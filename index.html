@@ -22,7 +22,8 @@ html:not([data-gate="signed-in"]) #mainApp,
 html:not([data-gate="signed-in"]) nav.tabs,
 html:not([data-gate="signed-in"]) .modal,
 html:not([data-gate="signed-in"]) #toastContainer{display:none!important}
-html{background:#f3f1ec}
+html{background:#f3f1ec;overflow-x:clip}
+html[data-theme="dark"]{background:#1a1c1b}
 html:not([data-gate="signed-in"]) #sessionGate{display:flex;min-height:100vh;align-items:center;justify-content:center}
 html[data-gate="checking"] #loginCard{display:none!important}
 html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;align-items:center;gap:12px}
@@ -51,10 +52,7 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
       <button type="button" data-tab="progress" id="tabProgress"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 17V10M10 17V7M15 17v-4M20 17V5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>Progress</span></button>
     </nav>
     <div class="header-actions">
-      <div class="install-slot">
-        <button type="button" class="btn ghost" id="installAppBtn" hidden>Install app</button>
-        <p class="hint" id="installHelp" hidden>On Android Chrome, open the browser menu and choose Install app or Add to Home screen. On iPhone Safari, tap Share, then Add to Home Screen.</p>
-      </div>
+      <button type="button" class="btn ghost" id="installAppBtn" hidden>Install app</button>
       <button type="button" id="timerChip" title="Timer running" aria-live="polite"></button>
       <div class="account">
         <button type="button" class="avatar" id="accountBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="accountMenu" aria-label="Account menu">
@@ -349,11 +347,34 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
   <footer class="note">Saved to your account.<br>Low friction, no guilt.</footer>
 </main>
 
+<div id="installSheet" class="modal" role="dialog" aria-labelledby="installSheetTitle" aria-modal="true">
+  <div class="modal-box">
+    <h2 id="installSheetTitle">Add TinyStarts to your home screen</h2>
+    <p class="hint">This browser didn’t offer a one-tap install. These steps take about half a minute.</p>
+    <h3>Chrome</h3>
+    <ol class="install-steps">
+      <li>Tap the three-dot menu.</li>
+      <li>Tap Install app, or Add to Home screen.</li>
+    </ol>
+    <h3>Samsung Internet</h3>
+    <ol class="install-steps">
+      <li>Tap the menu.</li>
+      <li>Tap Add page to, then Home screen.</li>
+    </ol>
+    <h3>iPhone Safari</h3>
+    <ol class="install-steps">
+      <li>Tap Share.</li>
+      <li>Tap Add to Home Screen.</li>
+    </ol>
+    <button type="button" class="btn" id="closeInstallSheet">Done</button>
+  </div>
+</div>
+
 <div id="settingsModal" class="modal" role="dialog" aria-labelledby="settingsTitle" aria-modal="true">
   <div class="modal-box">
     <h2 id="settingsTitle">Settings</h2>
     <p class="hint" id="accountStatus">Sign in with the same username and password on your phone and on the Life Admin computer so both stay in sync.</p>
-    <p class="hint" id="installHelpSettings">To install: on Android Chrome, open the browser menu and choose Install app or Add to Home screen. On iPhone Safari, tap Share, then Add to Home Screen.</p>
+    <p class="hint" id="installHelpSettings">To install: in Chrome, tap the three-dot menu, then Install app or Add to Home screen. In Samsung Internet, tap the menu, then Add page to, then Home screen. On iPhone Safari, tap Share, then Add to Home Screen.</p>
     <div class="btn-row" id="authButtons"></div>
     <div id="securityPanel"></div>
 
