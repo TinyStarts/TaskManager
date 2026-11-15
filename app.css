@@ -86,24 +86,37 @@
     position: sticky; top: 0; z-index: 40;
     background: var(--bg);
     border-bottom: 1px solid var(--line);
-    padding: 14px 16px 16px;
+    height: 64px; padding: 0 10px;
   }
   .header-inner {
-    width: 100%; max-width: 760px; margin: 0 auto; min-height: 64px; min-width: 0;
-    display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+    width: 100%; max-width: 760px; height: 100%; margin: 0 auto; min-width: 0;
+    display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: nowrap;
   }
-  .brand { display: flex; align-items: center; gap: 12px; min-width: 0; color: inherit; flex: 1 1 auto; }
-  .mark { width: 40px; height: 40px; flex: none; color: var(--accent); }
+  .brand { display: flex; align-items: center; gap: 8px; min-width: 0; color: inherit; flex: 0 0 auto; }
+  .mark { width: 32px; height: 32px; flex: none; color: var(--accent); }
   .mark-fill { color: var(--accent); }
   .brand-text { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
   .brand h1 { margin: 0; font-size: 1.35rem; font-weight: 650; letter-spacing: -0.03em; }
+  header.app .brand h1 { font-size: 1.15rem; white-space: nowrap; }
+  .gate-brand .mark { width: 40px; height: 40px; }
   .brand h1 span { font-weight: 500; opacity: 0.7; }
-  .tagline { color: var(--muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
-  .header-actions { display: flex; align-items: center; gap: 8px; flex: 0 1 auto; min-width: 0; margin-left: auto; }
-  #installAppBtn { max-width: 100%; }
-  .account { position: relative; }
+  .tagline { color: var(--muted); margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+  .header-tagline { display: none; }
+  .header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 2px; flex: 1 1 auto; min-width: 0; margin-left: auto; }
+  .status-slot { display: flex; align-items: center; min-width: 0; max-width: 11rem; }
+  .status-chip {
+    display: none; align-items: center; max-width: 100%; height: 32px; margin: 0;
+    padding: 0 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent);
+    font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #saveStatus.show, #quietAck:not([hidden]) { display: inline-flex; }
+  #saveStatus.show ~ #quietAck { display: none !important; }
+  #saveStatus[data-state="saving"], #saveStatus[data-state="error"] { background: var(--bg-accent); color: var(--muted); }
+  #installAppBtn { color: var(--accent); flex: none; }
+  #installAppBtn[hidden] { display: none !important; }
+  .account { position: relative; flex: none; }
   .avatar {
-    width: 44px; height: 44px; border-radius: 50%; border: none;
+    width: 48px; height: 48px; border-radius: 50%; border: none;
     background: var(--accent); color: var(--on-accent);
     font-weight: 700; font-size: 1.05rem; letter-spacing: 0;
     display: inline-flex; align-items: center; justify-content: center;
@@ -119,9 +132,10 @@
   .account-who {
     margin: 4px 8px 8px; color: var(--muted); font-size: 0.85rem; line-height: 1.3;
   }
+  .account-tagline { margin: 0 8px 8px; color: var(--muted); }
   .menu-item {
     display: flex; width: 100%; text-align: left; border: none; background: transparent;
-    color: var(--ink); border-radius: 10px; min-height: 44px; padding: 8px 12px; font-weight: 600;
+    color: var(--ink); border-radius: 10px; min-height: 48px; padding: 8px 12px; font-weight: 600;
   }
   .menu-item:hover { background: var(--bg-accent); }
   #headerSignOutBtn { color: var(--ink); }
@@ -133,12 +147,13 @@
   .icon-btn:hover { background: var(--bg-accent); color: var(--ink); }
   .user-chip { font-size: 0.8rem; color: var(--muted); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #timerChip {
-    display: none; align-items: center; gap: 6px;
+    display: none; align-items: center; gap: 6px; flex: none;
     background: var(--accent-soft); color: var(--accent);
-    border-radius: 999px; padding: 6px 10px; font-weight: 600; font-size: 0.85rem;
+    border-radius: 999px; padding: 0 10px; min-width: 48px; font-weight: 600;
     border: none;
   }
   #timerChip.show { display: inline-flex; }
+  .header-actions:has(#timerChip.show) .status-slot { display: none; }
   .btn-compact { width: auto; min-height: 48px; padding: 8px 12px; }
   .btn-row-spaced { margin-top: 16px; }
   .section-rule { border: none; border-top: 1px solid var(--line); margin: 16px 0; }
@@ -150,7 +165,7 @@
   .date-row { margin: 0 0 16px; }
   .date-row h2 { margin: 0; font-size: 1.45rem; letter-spacing: -0.03em; font-weight: 650; }
   .date-row p { margin: 4px 0 0; color: var(--muted); font-size: 0.95rem; }
-  #editingBanner, #carryPrompt, #reminderBanner, #saveStatus {
+  #editingBanner, #carryPrompt, #reminderBanner {
     border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; font-size: 0.95rem;
   }
   #editingBanner { display: none; background: var(--accent-soft); color: var(--ink); }
@@ -332,13 +347,17 @@
   footer.note { text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 8px; }
   @media (min-width: 800px) {
     body { padding-bottom: 24px; }
-    header.app { padding: 18px 24px; }
-    .header-inner { min-height: 72px; gap: 24px; }
+    header.app { height: 64px; padding: 0 20px; }
+    .header-inner { gap: 16px; }
+    .header-actions { flex: 0 0 auto; }
+    .header-tagline { display: block; }
+    .brand-text { flex-direction: row; align-items: baseline; gap: 10px; }
+    .mark { width: 36px; height: 36px; }
     nav.tabs {
-      position: static; flex: 1; max-width: 460px; margin: 0 auto; padding: 6px;
+      position: static; flex: 1; max-width: 460px; margin: 0 auto; padding: 4px;
       border: 1px solid var(--line); border-radius: 16px; background: var(--card);
     }
-    nav.tabs button { flex-direction: row; gap: 8px; font-size: 0.95rem; }
+    nav.tabs button { flex-direction: row; gap: 8px; font-size: 0.95rem; min-height: 48px; }
     .header-inner, .wrap { padding-left: 20px; padding-right: 20px; }
     body[data-view="planner"] .wrap,
     body[data-view="planner"] .header-inner { max-width: 1200px; }
@@ -519,7 +538,7 @@
   }
   .today-pill[hidden] { display: none !important; }
   #jumpTodayBtn { min-height: 48px; }
-  .quiet-ack { margin: 4px 0 0; color: var(--muted); font-size: 0.85rem; }
+  .quiet-ack { color: var(--accent); }
   .day-backup { margin-top: 8px; }
   .backup-version {
     display: flex; align-items: center; gap: 8px; justify-content: space-between;
@@ -535,10 +554,7 @@
   #todayView[data-energy="low"]:not([data-more="open"]) .low-energy-extra { display: none !important; }
   .brain-line-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
   .brain-line-actions button { min-height: 44px; }
-  .saved-indicator { margin: 0; color: var(--muted); font-size: 0.8rem; min-height: 1.2em; }
-  #saveStatus { padding: 0; margin: 4px 0 0; background: transparent; border-radius: 0; font-size: 0.8rem; color: var(--muted); }
-  #saveStatus[data-state="saved"] { color: var(--accent); }
-  #saveStatus[data-state="error"] { color: var(--muted); }
+  #saveStatus[data-state="saved"] { color: var(--accent); background: var(--accent-soft); }
   .supplement-label { margin-top: 12px; }
   .supplement-setting { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
   .supplement-setting input { flex: 1; min-width: 0; }

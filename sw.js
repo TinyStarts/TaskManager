@@ -1,5 +1,5 @@
 /* TinyStarts service worker. Network first for the app shell so a new deploy shows up, cache only same-origin GET responses, and never touch Supabase or other APIs. */
-const CACHE_NAME = 'tinystarts-v2-shell-17';
+const CACHE_NAME = 'tinystarts-v2-shell-18';
 const SHELL = [
   './',
   './index.html',

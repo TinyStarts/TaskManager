@@ -43,7 +43,7 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
       </svg>
       <div class="brand-text">
         <h1><span>Tiny</span>Starts</h1>
-        <div class="tagline">Low friction. No guilt.</div>
+        <p class="tagline header-tagline">Low friction. No guilt.</p>
       </div>
     </div>
     <nav class="tabs" aria-label="Main">
@@ -52,7 +52,13 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
       <button type="button" data-tab="progress" id="tabProgress"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 17V10M10 17V7M15 17v-4M20 17V5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>Progress</span></button>
     </nav>
     <div class="header-actions">
-      <button type="button" class="btn ghost" id="installAppBtn" hidden>Install app</button>
+      <div class="status-slot">
+        <p class="status-chip saved-indicator" id="saveStatus" role="status" aria-live="polite" data-state=""></p>
+        <p class="status-chip quiet-ack" id="quietAck" hidden>Noted.</p>
+      </div>
+      <button type="button" class="icon-btn" id="installAppBtn" hidden aria-label="Install app" title="Install app">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8.5 9.5 12 13l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 14.5V18a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
       <button type="button" id="timerChip" title="Timer running" aria-live="polite"></button>
       <div class="account">
         <button type="button" class="avatar" id="accountBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="accountMenu" aria-label="Account menu">
@@ -60,6 +66,7 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
         </button>
         <div id="accountMenu" class="account-menu" hidden role="menu">
           <p class="account-who" id="accountWho">Signed in</p>
+          <p class="account-tagline">Low friction. No guilt.</p>
           <span class="visually-hidden" id="userEmail"></span>
           <button type="button" class="menu-item" id="themeBtn" role="menuitem">Theme</button>
           <button type="button" class="menu-item" id="settingsBtn" role="menuitem">Settings</button>
@@ -96,8 +103,6 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
         <button type="button" class="visually-hidden" id="nextDayBtn">Next day</button>
       </div>
       <p id="todayTagline">Start with your energy, then one small next action.</p>
-      <p class="quiet-ack" id="quietAck" hidden>Noted.</p>
-      <p class="saved-indicator" id="saveStatus" role="status" aria-live="polite" data-state=""></p>
       <div id="dayMenu" class="day-menu" hidden role="menu">
         <button type="button" class="btn secondary" id="clearDayBtn" role="menuitem">Clear this day</button>
       </div>

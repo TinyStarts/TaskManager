@@ -518,6 +518,7 @@
     if (!el) return;
     el.dataset.state = state || '';
     el.textContent = text || '';
+    el.title = text || '';
     el.classList.toggle('show', !!text);
   }
 
@@ -4971,7 +4972,7 @@
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js?v=17').catch(function (err) {
+    navigator.serviceWorker.register('sw.js?v=18').catch(function (err) {
       console.warn('Service worker not registered:', err);
     });
   });
