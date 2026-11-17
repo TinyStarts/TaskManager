@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-gate="checking">
+<html lang="en" data-gate="checking" data-calm="off">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -32,6 +32,32 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
 </head>
 <body>
 <a class="skip" href="#mainApp">Skip to content</a>
+<div class="sky" aria-hidden="true">
+  <div class="sky-wash"></div>
+  <svg class="sky-art" viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice">
+    <g class="sprouts" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+      <path d="M36 760c22-52 6-104 42-146"/>
+      <path d="M78 614c12-10 26-6 32-18"/>
+      <path d="M74 628c14 4 22 16 16 28"/>
+      <path d="M348 46c-6 48 14 92-8 138"/>
+      <path d="M340 184c-14-4-26 8-22 22"/>
+      <path d="M186 790c8-36-10-58 6-92"/>
+    </g>
+    <g class="stars" fill="currentColor">
+      <circle cx="54" cy="72" r="1.2"/><circle cx="128" cy="46" r="0.8"/><circle cx="210" cy="96" r="1.1"/>
+      <circle cx="292" cy="58" r="0.9"/><circle cx="360" cy="110" r="1.3"/><circle cx="86" cy="168" r="0.8"/>
+      <circle cx="246" cy="188" r="1.1"/><circle cx="330" cy="240" r="0.8"/><circle cx="42" cy="286" r="1"/>
+      <circle cx="168" cy="310" r="0.7"/><circle cx="388" cy="340" r="1.1"/><circle cx="112" cy="390" r="0.9"/>
+      <circle cx="274" cy="420" r="1.2"/><circle cx="64" cy="470" r="0.8"/><circle cx="198" cy="510" r="1"/>
+      <circle cx="346" cy="530" r="0.8"/><circle cx="132" cy="590" r="1.1"/><circle cx="308" cy="640" r="0.9"/>
+      <circle cx="88" cy="680" r="0.8"/><circle cx="230" cy="700" r="1.2"/><circle cx="372" cy="710" r="0.7"/>
+      <path d="M18 140l1.1.3.3 1.1.3-1.1 1.1-.3-1.1-.3-.3-1.1-.3 1.1z"/>
+      <path d="M250 140l1.3.4.4 1.3.4-1.3 1.3-.4-1.3-.4-.4-1.3-.4 1.3z"/>
+      <path d="M150 250l1 .3.3 1 .3-1 1-.3-1-.3-.3-1-.3 1z"/>
+      <path d="M320 460l1.2.35.35 1.2.35-1.2 1.2-.35-1.2-.35-.35-1.2-.35 1.2z"/>
+    </g>
+  </svg>
+</div>
 
 <header class="app">
   <div class="header-inner">
@@ -53,8 +79,7 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
     </nav>
     <div class="header-actions">
       <div class="status-slot">
-        <p class="status-chip saved-indicator" id="saveStatus" role="status" aria-live="polite" data-state=""></p>
-        <p class="status-chip quiet-ack" id="quietAck" hidden>Noted.</p>
+        <p class="status-chip saved-indicator" id="saveStatus" role="status" aria-live="polite" aria-hidden="true" data-state=""></p>
       </div>
       <button type="button" class="icon-btn" id="installAppBtn" hidden aria-label="Install app" title="Install app">
         <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8.5 9.5 12 13l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 14.5V18a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
@@ -69,6 +94,7 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
           <p class="account-tagline">Low friction. No guilt.</p>
           <span class="visually-hidden" id="userEmail"></span>
           <button type="button" class="menu-item" id="themeBtn" role="menuitem">Theme</button>
+          <button type="button" class="menu-item" id="calmBgMenuBtn" role="menuitem" aria-pressed="false">Calm background: off</button>
           <button type="button" class="menu-item" id="settingsBtn" role="menuitem">Settings</button>
           <button type="button" class="menu-item" id="headerSignOutBtn" role="menuitem">Sign out</button>
         </div>
@@ -380,6 +406,12 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
     <h2 id="settingsTitle">Settings</h2>
     <p class="hint" id="accountStatus">Sign in with the same username and password on your phone and on the Life Admin computer so both stay in sync.</p>
     <p class="hint" id="installHelpSettings">To install: in Chrome, tap the three-dot menu, then Install app or Add to Home screen. In Samsung Internet, tap the menu, then Add page to, then Home screen. On iPhone Safari, tap Share, then Add to Home Screen.</p>
+    <h3>Look</h3>
+    <label class="calm-row" for="calmBgToggle">
+      <span>Calm background</span>
+      <input type="checkbox" id="calmBgToggle">
+    </label>
+    <p class="hint">A plain soft wash. No stars and no motion. Cards sit a little more solid.</p>
     <div class="btn-row" id="authButtons"></div>
     <div id="securityPanel"></div>
 

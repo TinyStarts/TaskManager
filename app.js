@@ -486,6 +486,22 @@
     else setTheme('light');
   }
 
+  function setCalmBackground(on) {
+    const calm = !!on;
+    document.documentElement.setAttribute('data-calm', calm ? 'on' : 'off');
+    safeSet('calm-bg', calm ? 'on' : 'off');
+    const box = $('calmBgToggle');
+    if (box) box.checked = calm;
+    const menu = $('calmBgMenuBtn');
+    if (menu) {
+      menu.setAttribute('aria-pressed', calm ? 'true' : 'false');
+      menu.textContent = calm ? 'Calm background: on' : 'Calm background: off';
+    }
+  }
+  function initCalm() {
+    setCalmBackground(safeGet('calm-bg', 'off') === 'on');
+  }
+
   function showToast(message, type, duration, undo) {
     const container = $('toastContainer');
     if (!container) return;
@@ -512,25 +528,38 @@
   let saveSeq = 0;
   let saveRetryTimer = null;
   let pendingCloudSave = null;
+  let saveStatusTimer = null;
 
   function setSaveStatus(state, text) {
     const el = $('saveStatus');
     if (!el) return;
+    clearTimeout(saveStatusTimer);
+    const slot = el.parentElement;
     el.dataset.state = state || '';
+    if (slot) slot.dataset.state = state || '';
     el.textContent = text || '';
     el.title = text || '';
-    el.classList.toggle('show', !!text);
-  }
-
-  function savedClock(date) {
-    return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    if (text) {
+      if (slot) slot.classList.add('hold');
+      el.classList.add('show');
+      el.removeAttribute('aria-hidden');
+    } else {
+      el.classList.remove('show');
+      el.setAttribute('aria-hidden', 'true');
+    }
+    if (state === 'saved') {
+      saveStatusTimer = setTimeout(function () {
+        el.classList.remove('show');
+        el.setAttribute('aria-hidden', 'true');
+      }, 2000);
+    }
   }
 
   function finishCloudSave(seq, ok) {
     if (seq !== saveSeq) return;
     if (ok) {
       pendingCloudSave = null;
-      setSaveStatus('saved', 'Saved ' + savedClock(new Date()));
+      setSaveStatus('saved', 'Saved');
       return;
     }
     setSaveStatus('error', 'Not saved yet, will retry');
@@ -1001,7 +1030,6 @@
     if (jump) jump.hidden = onToday;
     if (pill) pill.hidden = !onToday;
     updateTodayTagline();
-    updateQuietAck();
     applyLowEnergyMode();
   }
 
@@ -1034,7 +1062,6 @@
   }
 
   function scheduleSave() {
-    updateQuietAck();
     dayDirty = true;
     setSaveStatus('saving', 'Saving…');
     clearTimeout(saveTimer);
@@ -1942,22 +1969,6 @@
     showToast('Added to the planner.', 'success');
   }
 
-  function updateQuietAck() {
-    const el = $('quietAck');
-    if (!el) return;
-    const energyOn = !!currentEnergy();
-    const medsOn = !!($('meds-morning') && $('meds-morning').checked)
-      || !!($('meds-afternoon') && $('meds-afternoon').checked)
-      || !!document.querySelector('#supplementList input:checked');
-    const dumpOn = String(($('brainDump') && $('brainDump').value) || '').split('\n').some(function (line) { return !!line.trim(); });
-    let anyTop = false;
-    for (let n = 1; n <= 3; n++) {
-      const input = $('top3-text-' + n);
-      if (input && String(input.value || '').trim()) anyTop = true;
-    }
-    el.hidden = !(energyOn || medsOn || dumpOn || anyTop);
-  }
-
   function applyLowEnergyMode() {
     const view = $('todayView');
     const btn = $('showMoreToday');
@@ -2378,7 +2389,8 @@
       tileVisited: loadJson('tile-visited', {}),
       plannerUpdated: loadJson('planner-updated', {}),
       supplementCatalog: loadJson('supplement-catalog', null),
-      theme: safeGet('theme', 'light')
+      theme: safeGet('theme', 'light'),
+      calmBackground: safeGet('calm-bg', 'off')
     };
   }
 
@@ -2656,6 +2668,7 @@
     if (obj.tileVisited && typeof obj.tileVisited === 'object') saveJson('tile-visited', Object.assign(loadJson('tile-visited', {}), obj.tileVisited));
     if (obj.supplementCatalog && typeof obj.supplementCatalog === 'object') saveJson('supplement-catalog', obj.supplementCatalog);
     if (obj.theme === 'dark' || obj.theme === 'light') setTheme(obj.theme);
+    if (obj.calmBackground === 'on' || obj.calmBackground === 'off') setCalmBackground(obj.calmBackground === 'on');
 
     const incomingAff = obj.affirmations || obj.userAffirmations || {};
     const localAff = getAffirmationStore();
@@ -4624,6 +4637,12 @@
       setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
       closeAccountMenu();
     });
+    if ($('calmBgMenuBtn')) $('calmBgMenuBtn').addEventListener('click', function () {
+      setCalmBackground(document.documentElement.getAttribute('data-calm') !== 'on');
+    });
+    if ($('calmBgToggle')) $('calmBgToggle').addEventListener('change', function () {
+      setCalmBackground(!!$('calmBgToggle').checked);
+    });
     $('settingsBtn').addEventListener('click', function () {
       closeAccountMenu();
       updateAccountUI();
@@ -4941,6 +4960,7 @@
 
   function start() {
     initTheme();
+    initCalm();
     initInstall();
     document.body.dataset.view = 'today';
     document.documentElement.dataset.gate = 'checking';
@@ -4972,7 +4992,7 @@
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js?v=18').catch(function (err) {
+    navigator.serviceWorker.register('sw.js?v=20').catch(function (err) {
       console.warn('Service worker not registered:', err);
     });
   });
