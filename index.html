@@ -81,7 +81,7 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
       <div class="status-slot">
         <p class="status-chip saved-indicator" id="saveStatus" role="status" aria-live="polite" aria-hidden="true" data-state=""></p>
       </div>
-      <button type="button" class="icon-btn" id="installAppBtn" hidden aria-label="Install app" title="Install app">
+      <button type="button" class="icon-btn" id="installAppBtn" hidden aria-label="Download app" title="Download app">
         <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8.5 9.5 12 13l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 14.5V18a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
       </button>
       <button type="button" id="timerChip" title="Timer running" aria-live="polite"></button>
@@ -380,23 +380,107 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
 
 <div id="installSheet" class="modal" role="dialog" aria-labelledby="installSheetTitle" aria-modal="true">
   <div class="modal-box">
-    <h2 id="installSheetTitle">Add TinyStarts to your home screen</h2>
-    <p class="hint">This browser didn’t offer a one-tap install. These steps take about half a minute.</p>
-    <h3>Chrome</h3>
-    <ol class="install-steps">
-      <li>Tap the three-dot menu.</li>
-      <li>Tap Install app, or Add to Home screen.</li>
-    </ol>
-    <h3>Samsung Internet</h3>
-    <ol class="install-steps">
-      <li>Tap the menu.</li>
-      <li>Tap Add page to, then Home screen.</li>
-    </ol>
-    <h3>iPhone Safari</h3>
-    <ol class="install-steps">
-      <li>Tap Share.</li>
-      <li>Tap Add to Home Screen.</li>
-    </ol>
+    <h2 id="installSheetTitle">Download app</h2>
+    <p class="hint">Pick your browser. The steps match this device when we can tell.</p>
+    <label class="field" for="installBrowser">Browser</label>
+    <select id="installBrowser" name="installBrowser">
+      <option value="firefox">Firefox</option>
+      <option value="chrome">Chrome</option>
+      <option value="samsung">Samsung Internet</option>
+      <option value="safari">iPhone Safari</option>
+    </select>
+    <div id="installFirefoxDeviceWrap">
+      <label class="field" for="installFirefoxDevice">This Firefox is on</label>
+      <select id="installFirefoxDevice" name="installFirefoxDevice">
+        <option value="android">Android phone</option>
+        <option value="windows">Windows computer</option>
+        <option value="ios">iPhone</option>
+        <option value="computer">Mac, Linux, or an older Firefox</option>
+      </select>
+    </div>
+
+    <div data-install="firefox">
+      <div data-firefox="android">
+        <div class="install-figure">
+          <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="8" y="6" width="32" height="36" rx="6" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="38" r="1.6" fill="currentColor"/><circle cx="24" cy="38" r="1.6" fill="currentColor"/><circle cx="30" cy="38" r="1.6" fill="currentColor"/></svg>
+          <p><strong>1.</strong> Tap the menu. It is the three dots on the toolbar.</p>
+        </div>
+        <div class="install-figure">
+          <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="10" y="14" width="28" height="22" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 14v-3h16v3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M24 20v8M20 24h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <p><strong>2.</strong> Tap <strong>Add app to Home screen</strong>. An older Firefox may say <strong>Install</strong>.</p>
+        </div>
+        <div class="install-figure">
+          <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M10 22 24 10l14 12v14a2 2 0 0 1-2 2H12a2 2 0 0 1-2-2Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><rect x="20" y="28" width="8" height="10" rx="1" fill="currentColor"/></svg>
+          <p><strong>3.</strong> Confirm TinyStarts. It then opens from your home screen.</p>
+        </div>
+      </div>
+      <div data-firefox="windows" hidden>
+        <div class="install-figure">
+          <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="10" width="36" height="22" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M14 38h20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M30 16v6M27 19h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <p><strong>1.</strong> In the address bar, click <strong>Add tab to taskbar</strong>.</p>
+        </div>
+        <div class="install-figure">
+          <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="8" y="30" width="32" height="8" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="18" y="10" width="12" height="16" rx="2" fill="currentColor"/></svg>
+          <p><strong>2.</strong> When Firefox asks, pin TinyStarts. It opens in its own window.</p>
+        </div>
+        <p class="hint">This is in Firefox 143 or newer on Windows. A copy from the Microsoft Store needs Firefox 150. If you do not see the button, use the choices below.</p>
+        <div class="install-offer">
+          <p>Bookmark it with the star, or Ctrl+D.</p>
+          <button type="button" class="btn secondary" id="copyInstallLinkBtn">Copy link for Chrome or Edge</button>
+          <p class="hint">Paste that link in Chrome or Edge, then use Install there.</p>
+        </div>
+      </div>
+      <div data-firefox="ios" hidden>
+        <p>Firefox on iPhone can’t install TinyStarts as an app.</p>
+        <div class="install-figure">
+          <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 30V12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M16 18l8-8 8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 26h-2a4 4 0 0 0-4 4v6h32v-6a4 4 0 0 0-4-4h-2" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+          <p>Open this page in Safari. Tap Share, then <strong>Add to Home Screen</strong>.</p>
+        </div>
+      </div>
+      <div data-firefox="computer" hidden>
+        <p>Firefox on this computer can’t install TinyStarts as an app.</p>
+        <div class="install-figure">
+          <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 8l4.2 8.6 9.5 1.4-6.9 6.7 1.6 9.5L24 30.2 15.6 34.2l1.6-9.5-6.9-6.7 9.5-1.4Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+          <p><strong>Bookmark it.</strong> Click the star in the address bar, or press Ctrl+D (Command+D on a Mac).</p>
+        </div>
+        <button type="button" class="btn secondary" id="copyInstallLinkBtnAlt">Copy link for Chrome or Edge</button>
+        <p class="hint">Paste that link in Chrome or Edge, then use Install there.</p>
+      </div>
+    </div>
+
+    <div data-install="chrome" hidden>
+      <div class="install-figure">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="8" y="6" width="32" height="36" rx="6" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="34" cy="14" r="1.5" fill="currentColor"/><circle cx="34" cy="19" r="1.5" fill="currentColor"/><circle cx="34" cy="24" r="1.5" fill="currentColor"/></svg>
+        <p><strong>1.</strong> Tap the three-dot menu.</p>
+      </div>
+      <div class="install-figure">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 12v16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M16 22l8 8 8-8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 36h20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <p><strong>2.</strong> Tap <strong>Install app</strong>, or <strong>Add to Home screen</strong>.</p>
+      </div>
+    </div>
+
+    <div data-install="samsung" hidden>
+      <div class="install-figure">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="8" y="6" width="32" height="36" rx="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M18 16h12M18 22h12M18 28h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <p><strong>1.</strong> Tap the menu.</p>
+      </div>
+      <div class="install-figure">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M10 22 24 10l14 12v14a2 2 0 0 1-2 2H12a2 2 0 0 1-2-2Z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M24 22v8M20 26h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <p><strong>2.</strong> Tap <strong>Add page to</strong>, then <strong>Home screen</strong>.</p>
+      </div>
+    </div>
+
+    <div data-install="safari" hidden>
+      <div class="install-figure">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 32V14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M16 20l8-8 8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 28h-1a4 4 0 0 0-4 4v4h34v-4a4 4 0 0 0-4-4h-1" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+        <p><strong>1.</strong> Tap Share.</p>
+      </div>
+      <div class="install-figure">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M10 22 24 10l14 12v14a2 2 0 0 1-2 2H12a2 2 0 0 1-2-2Z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M24 22v10M19 27h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <p><strong>2.</strong> Tap <strong>Add to Home Screen</strong>.</p>
+      </div>
+    </div>
+
     <button type="button" class="btn" id="closeInstallSheet">Done</button>
   </div>
 </div>
@@ -405,7 +489,7 @@ html[data-gate="checking"] #sessionChecking{display:flex;flex-direction:column;a
   <div class="modal-box">
     <h2 id="settingsTitle">Settings</h2>
     <p class="hint" id="accountStatus">Sign in with the same username and password on your phone and on the Life Admin computer so both stay in sync.</p>
-    <p class="hint" id="installHelpSettings">To install: in Chrome, tap the three-dot menu, then Install app or Add to Home screen. In Samsung Internet, tap the menu, then Add page to, then Home screen. On iPhone Safari, tap Share, then Add to Home Screen.</p>
+    <p class="hint" id="installHelpSettings">Use Download app in the header and pick your browser. In Firefox on Android, open the menu and tap Add app to Home screen.</p>
     <h3>Look</h3>
     <label class="calm-row" for="calmBgToggle">
       <span>Calm background</span>
