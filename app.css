@@ -748,6 +748,8 @@
   }
   #sessionGate {
     display: none;
+    position: relative;
+    z-index: 2;
     min-height: 100vh;
     min-height: 100dvh;
     box-sizing: border-box;
