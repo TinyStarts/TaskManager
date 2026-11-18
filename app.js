@@ -3881,9 +3881,27 @@
     }
   }
 
+  function isFirefoxBrowser() {
+    const ua = navigator.userAgent || '';
+    return /Firefox\/|FxiOS/i.test(ua);
+  }
+
+  function memoryAuthLock(name, acquireTimeout, fn) {
+    const queues = memoryAuthLock.queues || (memoryAuthLock.queues = Object.create(null));
+    const prev = queues[name] || Promise.resolve();
+    let release;
+    const gate = new Promise(function (resolve) { release = resolve; });
+    queues[name] = prev.then(function () { return gate; }, function () { return gate; });
+    const result = prev.then(fn, fn);
+    result.then(function () { release(); }, function () { release(); });
+    return result;
+  }
+
   function initSupabase() {
     if (window.supabase && !sb) {
-      sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      const options = {};
+      if (isFirefoxBrowser()) options.auth = { lock: memoryAuthLock };
+      sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, options);
     }
     return sb;
   }
@@ -4920,6 +4938,60 @@
 
   let installPromptEvent = null;
 
+  function browserKind() {
+    const ua = navigator.userAgent || '';
+    if (/SamsungBrowser/i.test(ua)) return 'samsung';
+    if (/Firefox\/|FxiOS/i.test(ua)) return 'firefox';
+    if (/iPhone|iPad|iPod/i.test(ua)) return 'safari';
+    return 'chrome';
+  }
+
+  function firefoxPlace() {
+    const ua = navigator.userAgent || '';
+    const major = Number((ua.match(/Firefox\/(\d+)/) || [])[1] || 0);
+    if (/Android/i.test(ua)) return 'android';
+    if (/iPhone|iPad|iPod/i.test(ua)) return 'ios';
+    if (/Windows/i.test(ua) && major >= 143) return 'windows';
+    return 'computer';
+  }
+
+  function showInstallGuide() {
+    const browserPick = $('installBrowser');
+    const devicePick = $('installFirefoxDevice');
+    const deviceWrap = $('installFirefoxDeviceWrap');
+    const browser = browserPick ? browserPick.value : 'chrome';
+    document.querySelectorAll('[data-install]').forEach(function (el) {
+      el.hidden = el.getAttribute('data-install') !== browser;
+    });
+    if (deviceWrap) deviceWrap.hidden = browser !== 'firefox';
+    if (browser === 'firefox') {
+      const place = devicePick ? devicePick.value : 'android';
+      document.querySelectorAll('[data-firefox]').forEach(function (el) {
+        el.hidden = el.getAttribute('data-firefox') !== place;
+      });
+    }
+  }
+
+  function openInstallGuide() {
+    const browserPick = $('installBrowser');
+    const devicePick = $('installFirefoxDevice');
+    if (browserPick) browserPick.value = browserKind();
+    if (devicePick) devicePick.value = firefoxPlace();
+    showInstallGuide();
+    openModal('installSheet');
+  }
+
+  function copyInstallLink() {
+    const url = location.href;
+    const done = function () { showToast('Link copied. Paste it in Chrome or Edge.', 'success'); };
+    const fail = function () { showToast('Copy the address from the bar, then open it in Chrome or Edge.', 'success'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(done, fail);
+      return;
+    }
+    fail();
+  }
+
   function updateInstallUI() {
     const btn = $('installAppBtn');
     const settingsHelp = $('installHelpSettings');
@@ -4942,8 +5014,12 @@
       installPromptEvent = null;
       updateInstallUI();
     });
+    if ($('installBrowser')) $('installBrowser').addEventListener('change', showInstallGuide);
+    if ($('installFirefoxDevice')) $('installFirefoxDevice').addEventListener('change', showInstallGuide);
+    if ($('copyInstallLinkBtn')) $('copyInstallLinkBtn').addEventListener('click', copyInstallLink);
+    if ($('copyInstallLinkBtnAlt')) $('copyInstallLinkBtnAlt').addEventListener('click', copyInstallLink);
     if ($('installAppBtn')) $('installAppBtn').addEventListener('click', function () {
-      if (installPromptEvent) {
+      if (installPromptEvent && !isFirefoxBrowser()) {
         const promptEvent = installPromptEvent;
         installPromptEvent = null;
         promptEvent.prompt();
@@ -4953,7 +5029,7 @@
         }
         return;
       }
-      openModal('installSheet');
+      openInstallGuide();
     });
     if ($('closeInstallSheet')) $('closeInstallSheet').addEventListener('click', function () { closeModal('installSheet'); });
   }
@@ -4992,7 +5068,7 @@
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js?v=20').catch(function (err) {
+    navigator.serviceWorker.register('sw.js?v=21').catch(function (err) {
       console.warn('Service worker not registered:', err);
     });
   });

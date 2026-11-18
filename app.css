@@ -801,8 +801,16 @@
   }
   .task-options { margin-top: 8px; }
   .task-options summary { min-height: 48px; display: flex; align-items: center; cursor: pointer; color: var(--muted); font-size: 16px; }
-  .install-steps { margin: 0 0 14px; padding-left: 1.2em; }
-  .install-steps li { margin: 4px 0; }
+  #installBrowser, #installFirefoxDevice { min-height: 48px; }
+  .install-figure {
+    display: flex; align-items: flex-start; gap: 12px;
+    margin: 12px 0 0; padding: 10px 12px;
+    border: 1px solid var(--line); border-radius: 14px; background: var(--bg);
+  }
+  .install-figure svg { width: 48px; height: 48px; flex: none; color: var(--accent); }
+  .install-figure p, .install-offer p { margin: 0; }
+  .install-offer { margin-top: 12px; }
+  .install-offer .btn { margin-top: 8px; }
   button, .btn, .icon-btn, .menu-item, .energy button, summary { min-height: 48px; }
   .mini-day, .day-cell, .month-cell { min-height: 48px; }
 
