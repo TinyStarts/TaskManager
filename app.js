@@ -5068,7 +5068,7 @@
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js?v=21').catch(function (err) {
+    navigator.serviceWorker.register('sw.js?v=22').catch(function (err) {
       console.warn('Service worker not registered:', err);
     });
   });
